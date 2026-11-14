@@ -113,39 +113,60 @@ public class MainActivity extends Activity {
   if(!found){TextView empty=center("Zatím žádné události. Volný den ✨",14,MUTED,false);empty.setBackground(shape(SURFACE,17));content.addView(empty,lp(-1,78));}
  }
  void addEvent(){
-  LinearLayout form=column();pad(form,22,8,22,4);
-  EditText input=new EditText(this);input.setSingleLine(true);input.setHint("Název události");form.addView(input);
-  gap(form,12);
-  TextView startLabel=text("Začátek",13,MUTED,true);form.addView(startLabel);
-  TextView from=text("09:00   ▾",20,WHITE,true);pad(from,8,12,8,12);from.setBackground(shape(SURFACE,12));form.addView(from);
-  gap(form,10);
-  TextView endLabel=text("Konec",13,MUTED,true);form.addView(endLabel);
-  TextView to=text("10:00   ▾",20,WHITE,true);pad(to,8,12,8,12);to.setBackground(shape(SURFACE,12));form.addView(to);
-  from.setOnClickListener(v->pickTime(from));
-  to.setOnClickListener(v->pickTime(to));
-  gap(form,12);
-  form.addView(text("Priorita",13,MUTED,true));
-  String[] options={"Běžná","Důležitá","Urgentní"};Spinner priority=new Spinner(this);
-  ArrayAdapter<String> adapter=new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,options);
-  priority.setAdapter(adapter);form.addView(priority);
-  AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Nová událost • "+selected).setView(form).setNegativeButton("Zrušit",null).setPositiveButton("Uložit",null).create();
-  dialog.setOnShowListener(ignored->dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{
-   String title=input.getText().toString().trim();
-   String begin=from.getText().toString().substring(0,5),finish=to.getText().toString().substring(0,5);
-   if(title.isEmpty()){input.setError("Zadej název");return;}
+  final Dialog dialog=new Dialog(this);
+  LinearLayout shell=column();shell.setBackground(shape(SURFACE,26));pad(shell,20,20,20,20);
+  TextView eyebrow=text("GENESIS  /  NOVÁ UDÁLOST",11,PURPLE,true);shell.addView(eyebrow);
+  gap(shell,8);shell.addView(text("Naplánovat událost",23,WHITE,true));
+  gap(shell,4);shell.addView(text(selected.format(DateTimeFormatter.ofPattern("EEEE d. MMMM",new Locale("cs"))),13,MUTED,false));
+  gap(shell,22);
+  shell.addView(text("NÁZEV",11,MUTED,true));gap(shell,8);
+  EditText name=new EditText(this);name.setSingleLine(true);name.setTextColor(WHITE);name.setHintTextColor(MUTED);
+  name.setTextSize(16);name.setHint("Co máš v plánu?");name.setBackground(outline(TILE,15,0xff414055));pad(name,14,12,14,12);shell.addView(name,lp(-1,53));
+  gap(shell,19);shell.addView(text("ČAS UDÁLOSTI",11,MUTED,true));gap(shell,8);
+  LinearLayout times=row();shell.addView(times,lp(-1,74));
+  LinearLayout startBox=timeBox("OD","09:00");times.addView(startBox,new LinearLayout.LayoutParams(0,-1,1));
+  TextView sep=center("→",20,PURPLE,true);times.addView(sep,lp(35,-1));
+  LinearLayout endBox=timeBox("DO","10:00");times.addView(endBox,new LinearLayout.LayoutParams(0,-1,1));
+  TextView from=(TextView)startBox.getChildAt(1),to=(TextView)endBox.getChildAt(1);
+  startBox.setOnClickListener(v->pickTime(from));endBox.setOnClickListener(v->pickTime(to));
+  gap(shell,19);shell.addView(text("PRIORITA",11,MUTED,true));gap(shell,9);
+  LinearLayout priorities=row();shell.addView(priorities,lp(-1,46));
+  String[] names={"Běžná","Důležitá","Urgentní"};int[] colors={GREEN,AMBER,RED};final int[] chosen={1};
+  TextView[] choices=new TextView[3];
+  for(int p=0;p<3;p++){final int index=p;TextView t=center("● "+names[p],12,colors[p],true);
+   LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(0,-1,1);params.setMargins(dp(2),0,dp(2),0);priorities.addView(t,params);choices[p]=t;
+   t.setOnClickListener(v->{chosen[0]=index+1;for(int j=0;j<3;j++)choices[j].setBackground(outline(j==index?0xff403455:TILE,13,j==index?PURPLE:0xff343345));});
+  }
+  for(int j=0;j<3;j++)choices[j].setBackground(outline(j==0?0xff403455:TILE,13,j==0?PURPLE:0xff343345));
+  gap(shell,22);
+  LinearLayout actions=row();shell.addView(actions,lp(-1,52));
+  TextView cancel=center("Zrušit",14,MUTED,true);actions.addView(cancel,new LinearLayout.LayoutParams(0,-1,1));cancel.setOnClickListener(v->dialog.dismiss());
+  TextView saveButton=center("Uložit událost",15,0xff171022,true);saveButton.setBackground(shape(PURPLE,16));actions.addView(saveButton,new LinearLayout.LayoutParams(0,-1,2));
+  saveButton.setOnClickListener(v->{
+   String title=name.getText().toString().trim(),begin=from.getText().toString(),finish=to.getText().toString();
+   if(title.isEmpty()){name.setError("Zadej název");return;}
    if(minutes(finish,0)<=minutes(begin,0)){Toast.makeText(this,"Konec musí být později než začátek",Toast.LENGTH_LONG).show();return;}
-   try{
-    JSONArray a=events();JSONObject o=new JSONObject();
-    o.put("date",selected.toString());o.put("title",title);
-    o.put("start",begin);o.put("end",finish);o.put("priority",priority.getSelectedItemPosition()+1);
-    a.put(o);save(a);dialog.dismiss();draw();
-   }catch(Exception e){Toast.makeText(this,"Událost se nepodařilo uložit",Toast.LENGTH_SHORT).show();}
-  }));
-  dialog.show();
+   try{JSONArray a=events();JSONObject o=new JSONObject();o.put("date",selected.toString());o.put("title",title);o.put("start",begin);o.put("end",finish);o.put("priority",chosen[0]);a.put(o);save(a);dialog.dismiss();draw();}
+   catch(Exception e){Toast.makeText(this,"Událost se nepodařilo uložit",Toast.LENGTH_SHORT).show();}
+  });
+  ScrollView scroll=new ScrollView(this);scroll.setFillViewport(false);scroll.addView(shell);dialog.setContentView(scroll);
+  Window window=dialog.getWindow();if(window!=null){window.setBackgroundDrawableResource(android.R.color.transparent);window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);WindowManager.LayoutParams attrs=window.getAttributes();attrs.dimAmount=.7f;window.setAttributes(attrs);}
+  dialog.show();window=dialog.getWindow();if(window!=null){window.setBackgroundDrawableResource(android.R.color.transparent);window.setLayout(getResources().getDisplayMetrics().widthPixels-dp(26),WindowManager.LayoutParams.WRAP_CONTENT);}
+ }
+ LinearLayout timeBox(String label,String value){
+  LinearLayout box=column();box.setGravity(Gravity.CENTER);box.setBackground(outline(TILE,15,0xff414055));
+  box.addView(center(label,10,MUTED,true));box.addView(center(value,21,WHITE,true));return box;
  }
  void pickTime(TextView target){
-  String time=target.getText().toString().substring(0,5);
-  int m=minutes(time,540);
-  new TimePickerDialog(this,(picker,h,min)->target.setText(String.format(Locale.ROOT,"%02d:%02d   ▾",h,min)),m/60,m%60,true).show();
+  int m=minutes(target.getText().toString(),540);
+  final Dialog picker=new Dialog(this);LinearLayout shell=column();shell.setBackground(shape(SURFACE,24));pad(shell,20,22,20,18);
+  shell.addView(text("Vybrat čas",21,WHITE,true));gap(shell,15);
+  LinearLayout wheels=row();wheels.setGravity(Gravity.CENTER);shell.addView(wheels,lp(-1,170));
+  NumberPicker hour=new NumberPicker(this);hour.setMinValue(0);hour.setMaxValue(23);hour.setValue(m/60);hour.setWrapSelectorWheel(true);wheels.addView(hour,lp(95,160));
+  wheels.addView(center(":",25,PURPLE,true),lp(24,160));
+  NumberPicker minute=new NumberPicker(this);minute.setMinValue(0);minute.setMaxValue(59);minute.setValue(m%60);minute.setWrapSelectorWheel(true);wheels.addView(minute,lp(95,160));
+  gap(shell,15);TextView confirm=center("Potvrdit",16,0xff171022,true);confirm.setBackground(shape(PURPLE,16));shell.addView(confirm,lp(-1,52));
+  confirm.setOnClickListener(v->{target.setText(String.format(Locale.ROOT,"%02d:%02d",hour.getValue(),minute.getValue()));picker.dismiss();});
+  picker.setContentView(shell);picker.show();Window w=picker.getWindow();if(w!=null){w.setBackgroundDrawableResource(android.R.color.transparent);w.setLayout(getResources().getDisplayMetrics().widthPixels-dp(48),WindowManager.LayoutParams.WRAP_CONTENT);}
  }
 }
