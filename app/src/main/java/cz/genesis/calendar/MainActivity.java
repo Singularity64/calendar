@@ -203,7 +203,7 @@ public class MainActivity extends Activity {
   heading.addView(text("Vybrat čas",22,WHITE,true),new LinearLayout.LayoutParams(0,-1,1));
   TextView preview=center("",19,PURPLE,true);preview.setBackground(shape(0xff302a42,12));pad(preview,12,6,12,6);heading.addView(preview);
   gap(shell,17);
-  LinearLayout wheels=row();shell.addView(wheels,lp(-1,265));
+  LinearLayout wheels=row();shell.addView(wheels,lp(-1,330));
   LinearLayout hours=arrowColumn("HODINY",hour,23,preview,hour,minute);
   LinearLayout mins=arrowColumn("MINUTY",minute,59,preview,hour,minute);
   wheels.addView(hours,new LinearLayout.LayoutParams(0,-1,1));
@@ -237,12 +237,12 @@ public class MainActivity extends Activity {
  }
  LinearLayout arrowColumn(String label,int[] value,int max,TextView preview,int[] hour,int[] minute){
   LinearLayout col=column();col.setGravity(Gravity.CENTER);col.setBackground(shape(TILE,19));pad(col,8,7,8,7);
-  col.addView(center(label,11,MUTED,true),lp(-1,23));
-  View up=chevron(true);col.addView(up,lp(-1,43));
-  TextView previous=center("",17,0xff77748a,false);col.addView(previous,lp(-1,24));
-  TextView number=center("",30,WHITE,true);number.setBackground(shape(0xff493a68,13));col.addView(number,lp(-1,59));
-  TextView next=center("",17,0xff77748a,false);col.addView(next,lp(-1,24));
-  View down=chevron(false);col.addView(down,lp(-1,43));
+  col.addView(center(label,11,MUTED,true),lp(-1,29));
+  View up=chevron(true);col.addView(up,lp(-1,58));
+  TextView previous=center("",17,0xff77748a,false);col.addView(previous,lp(-1,35));
+  TextView number=center("",30,WHITE,true);number.setBackground(shape(0xff493a68,13));col.addView(number,lp(-1,75));
+  TextView next=center("",17,0xff77748a,false);col.addView(next,lp(-1,35));
+  View down=chevron(false);col.addView(down,lp(-1,58));
   Runnable refresh=()->{
    number.setText(String.format(Locale.ROOT,"%02d",value[0]));
    previous.setText(String.format(Locale.ROOT,"%02d",(value[0]+max)%(max+1)));
@@ -250,6 +250,28 @@ public class MainActivity extends Activity {
    refreshTime(preview,hour,minute);
   };
   refresh.run();
+  // Swipe up/down on the entire wheel, including the number and adjacent values.
+  col.setOnTouchListener(new View.OnTouchListener(){
+   float startY;boolean moved;
+   @Override public boolean onTouch(View v,android.view.MotionEvent event){
+    switch(event.getActionMasked()){
+     case android.view.MotionEvent.ACTION_DOWN:startY=event.getY();moved=false;return true;
+     case android.view.MotionEvent.ACTION_MOVE:
+      float delta=event.getY()-startY;
+      if(Math.abs(delta)>=dp(24)){
+       int steps=Math.max(1,(int)(Math.abs(delta)/dp(24)));
+       int direction=delta<0?1:-1;
+       value[0]=((value[0]+direction*steps)%(max+1)+(max+1))%(max+1);
+       startY=event.getY();moved=true;refresh.run();
+      }
+      return true;
+     case android.view.MotionEvent.ACTION_UP:
+      if(!moved){float y=event.getY();if(y<dp(115))value[0]=(value[0]+max)%(max+1);else if(y>dp(210))value[0]=(value[0]+1)%(max+1);refresh.run();}
+      return true;
+    }
+    return true;
+   }
+  });
   up.setOnClickListener(v->{value[0]=(value[0]+max)%(max+1);refresh.run();});
   down.setOnClickListener(v->{value[0]=(value[0]+1)%(max+1);refresh.run();});
   return col;
