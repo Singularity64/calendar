@@ -13,7 +13,7 @@ import java.util.*;
 
 public class MainActivity extends Activity {
  final int BG=0xff101017, SURFACE=0xff1b1b28, TILE=0xff242436, PURPLE=0xffaa8bff, WHITE=0xfff5f3ff, MUTED=0xff9997ae, RED=0xffff747e, AMBER=0xffffbd69, GREEN=0xff7bd8a5;
- LinearLayout root,content; LocalDate selected=LocalDate.now(); YearMonth month=YearMonth.now(); int mode=0;
+ LinearLayout root,content; LocalDate selected=LocalDate.now(); YearMonth month=YearMonth.now(); int mode=0; boolean agendaExpanded=false;
  int dp(float n){return (int)(n*getResources().getDisplayMetrics().density+.5f);}
  GradientDrawable shape(int color,int radius){GradientDrawable d=new GradientDrawable();d.setColor(color);d.setCornerRadius(dp(radius));return d;}
  GradientDrawable outline(int color,int radius,int border){GradientDrawable d=shape(color,radius);d.setStroke(dp(1),border);return d;}
@@ -87,37 +87,54 @@ public class MainActivity extends Activity {
    LinearLayout.LayoutParams p=lp(43,43);p.leftMargin=dp(7);top.addView(action,p);
    action.setOnClickListener(v->{if(index==0)searchEvents();else if(index==1)showStats();else showSettings();});
   }
-  gap(root,19);
+  View headerGap=new View(this);root.addView(headerGap,lp(1,19));
   LinearLayout controls=row();root.addView(controls,lp(-1,46));
   TextView prev=center("‹",32,WHITE,false);controls.addView(prev,lp(42,44));
   TextView title=center(mode==0?monthName():"Týden "+selected.minusDays(selected.getDayOfWeek().getValue()-1).format(DateTimeFormatter.ofPattern("d. M.")),19,WHITE,true);controls.addView(title,new LinearLayout.LayoutParams(0,-1,1));
   TextView next=center("›",32,WHITE,false);controls.addView(next,lp(42,44));
   prev.setOnClickListener(v->{if(mode==0)month=month.minusMonths(1);else selected=selected.minusWeeks(1);draw();});
   next.setOnClickListener(v->{if(mode==0)month=month.plusMonths(1);else selected=selected.plusWeeks(1);draw();});
-  gap(root,13);
+  View controlsGap=new View(this);root.addView(controlsGap,lp(1,13));
   LinearLayout tabs=row();tabs.setBackground(shape(SURFACE,18));pad(tabs,4,4,4,4);root.addView(tabs,lp(-1,50));
   String[] names={"Měsíc","Týden 3×3","Seznam"};
   for(int i=0;i<3;i++){final int idx=i;TextView tab=center(names[i],13,i==mode?WHITE:MUTED,i==mode);if(i==mode)tab.setBackground(shape(0xff494064,15));tabs.addView(tab,new LinearLayout.LayoutParams(0,-1,1));tab.setOnClickListener(v->{mode=idx;draw();});}
-  gap(root,16);
+  View tabsGap=new View(this);root.addView(tabsGap,lp(1,16));
   // Calendar stays above; the daily agenda has its own vertical scroll area.
   ScrollView calendarScroll=new ScrollView(this);calendarScroll.setFillViewport(false);
   int calendarMax=dp(mode==0?340:mode==1?330:230);
   int available=getResources().getDisplayMetrics().heightPixels;
-  calendarMax=Math.min(calendarMax,(int)(available*0.43f));
+  calendarMax=Math.min(calendarMax,(int)(available*0.33f));
   root.addView(calendarScroll,new LinearLayout.LayoutParams(-1,calendarMax));
   content=column();calendarScroll.addView(content);
   if(mode==0)monthView();else if(mode==1)weekView();else listView();
-  gap(root,14);
-  TextView pull=center("━━━━    Program dne  ↑",12,MUTED,true);
-  pull.setContentDescription("Tažením nahoru rozbalit události");
-  root.addView(pull,lp(-1,34));
-  pull.setOnClickListener(v->expandAgenda());
-  pull.setOnTouchListener(new View.OnTouchListener(){
-   float downY;
-   public boolean onTouch(View v,android.view.MotionEvent event){
-    if(event.getActionMasked()==android.view.MotionEvent.ACTION_DOWN){downY=event.getRawY();return true;}
-    if(event.getActionMasked()==android.view.MotionEvent.ACTION_UP){
-     if(downY-event.getRawY()>dp(35)||Math.abs(downY-event.getRawY())<dp(12))expandAgenda();
+  View calendarGap=new View(this);root.addView(calendarGap,lp(1,12));
+  LinearLayout pullCard=column();pullCard.setBackground(shape(SURFACE,19));
+  root.addView(pullCard,lp(-1,56));
+  TextView grip=center("━━━━",19,PURPLE,true);pullCard.addView(grip,lp(-1,22));
+  TextView pull=center(agendaExpanded?"Program dne  •  Potáhni dolů ↓":"Program dne  •  Potáhni nahoru ↑",13,WHITE,true);
+  pullCard.addView(pull,lp(-1,30));
+  pullCard.setContentDescription(agendaExpanded?"Sbalit program dne":"Rozbalit program dne");
+  final int expandedCalendarHeight=0;
+  final int collapsedCalendarHeight=calendarMax;
+  final View[] hideWhenExpanded={top,headerGap,controls,controlsGap,tabs,tabsGap,calendarGap};
+  Runnable applyLayout=()->{
+   for(View v:hideWhenExpanded)v.setVisibility(agendaExpanded?View.GONE:View.VISIBLE);
+   calendarScroll.getLayoutParams().height=agendaExpanded?expandedCalendarHeight:collapsedCalendarHeight;
+   calendarScroll.requestLayout();
+   pull.setText(agendaExpanded?"Program dne  •  Potáhni dolů ↓":"Program dne  •  Potáhni nahoru ↑");
+   pullCard.setContentDescription(agendaExpanded?"Sbalit program dne":"Rozbalit program dne");
+  };
+  applyLayout.run();
+  pullCard.setOnClickListener(v->{agendaExpanded=!agendaExpanded;applyLayout.run();});
+  pullCard.setOnTouchListener(new View.OnTouchListener(){
+   float startY;
+   public boolean onTouch(View v,MotionEvent e){
+    if(e.getActionMasked()==MotionEvent.ACTION_DOWN){startY=e.getRawY();return true;}
+    if(e.getActionMasked()==MotionEvent.ACTION_UP){
+     float delta=e.getRawY()-startY;
+     if(Math.abs(delta)<dp(16)||(!agendaExpanded&&delta< -dp(35))||(agendaExpanded&&delta>dp(35))){
+      agendaExpanded=!agendaExpanded;applyLayout.run();
+     }
      return true;
     }
     return true;
@@ -129,34 +146,6 @@ public class MainActivity extends Activity {
   content=column();agendaScroll.addView(content);healthCard();gap(content,12);agenda();
   gap(root,10);
   TextView add=center("+   Nová událost",16,0xff171022,true);add.setBackground(shape(PURPLE,19));root.addView(add,lp(-1,54));add.setOnClickListener(v->addEvent());
- }
- void expandAgenda(){
-  final Dialog sheet=new Dialog(this);
-  LinearLayout panel=column();panel.setBackground(shape(SURFACE,24));pad(panel,16,8,16,14);
-  TextView handle=center("━━━━",22,PURPLE,true);panel.addView(handle,lp(-1,35));
-  handle.setContentDescription("Tažením dolů zavřít přehled událostí");
-  handle.setOnClickListener(v->sheet.dismiss());
-  handle.setOnTouchListener(new View.OnTouchListener(){
-   float downY;
-   public boolean onTouch(View v,android.view.MotionEvent event){
-    if(event.getActionMasked()==android.view.MotionEvent.ACTION_DOWN){downY=event.getRawY();return true;}
-    if(event.getActionMasked()==android.view.MotionEvent.ACTION_UP){if(event.getRawY()-downY>dp(35)||Math.abs(event.getRawY()-downY)<dp(12))sheet.dismiss();return true;}
-    return true;
-   }
-  });
-  ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);panel.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
-  LinearLayout oldContent=content;content=column();scroll.addView(content);agenda();content=oldContent;
-  sheet.setContentView(panel);
-  Window window=sheet.getWindow();if(window!=null){
-   window.setBackgroundDrawableResource(android.R.color.transparent);
-   window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
-   WindowManager.LayoutParams attrs=window.getAttributes();attrs.gravity=Gravity.BOTTOM;
-   attrs.width=WindowManager.LayoutParams.MATCH_PARENT;
-   attrs.height=(int)(getResources().getDisplayMetrics().heightPixels*0.70f);
-   attrs.dimAmount=0.35f;window.setAttributes(attrs);
-  }
-  sheet.show();
-  if(sheet.getWindow()!=null)sheet.getWindow().setLayout(-1,(int)(getResources().getDisplayMetrics().heightPixels*0.70f));
  }
  void monthView(){
   LinearLayout box=column();box.setBackground(shape(SURFACE,22));pad(box,9,13,9,12);content.addView(box,lp(-1,-2));
