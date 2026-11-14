@@ -223,9 +223,14 @@ public class MainActivity extends Activity {
   JSONArray a=events();boolean found=false;
   for(int i=0;i<a.length();i++){JSONObject o=a.optJSONObject(i);if(o==null||!selected.toString().equals(o.optString("date")))continue;found=true;final int at=i;
    LinearLayout line=row();line.setBackground(shape(SURFACE,17));pad(line,13,9,10,9);LinearLayout.LayoutParams p=lp(-1,62);p.bottomMargin=dp(7);content.addView(line,p);
-   TextView bullet=center("●",16,o.optInt("priority",1)==3?RED:o.optInt("priority",1)==2?AMBER:GREEN,true);line.addView(bullet,lp(23,-1));
+   CheckBox completed=new CheckBox(this);completed.setButtonTintList(android.content.res.ColorStateList.valueOf(PURPLE));
+   completed.setChecked(o.optBoolean("done",false));completed.setContentDescription("Označit jako splněné");line.addView(completed,lp(43,-1));
+   completed.setOnCheckedChangeListener((button,checked)->{try{o.put("done",checked);save(a);draw();}catch(Exception ignored){}});
+   TextView bullet=center("●",13,o.optInt("priority",1)==3?RED:o.optInt("priority",1)==2?AMBER:GREEN,true);line.addView(bullet,lp(20,-1));
    LinearLayout info=column();line.addView(info,new LinearLayout.LayoutParams(0,-2,1));
-   info.addView(text(o.optString("title"),15,WHITE,true));
+   TextView eventTitle=text(o.optString("title"),15,o.optBoolean("done",false)?MUTED:WHITE,true);
+   if(o.optBoolean("done",false))eventTitle.setPaintFlags(eventTitle.getPaintFlags()|android.graphics.Paint.STRIKE_THRU_TEXT_FLAG);
+   info.addView(eventTitle);
    info.addView(text(o.optString("start","09:00")+"–"+o.optString("end","10:00"),12,MUTED,false));
    TextView del=center("×",23,MUTED,false);line.addView(del,lp(39,-1));del.setOnClickListener(v->{JSONArray updated=new JSONArray();for(int j=0;j<a.length();j++)if(j!=at)updated.put(a.opt(j));save(updated);draw();});
   }
@@ -257,6 +262,15 @@ public class MainActivity extends Activity {
    t.setOnClickListener(v->{chosen[0]=index+1;for(int j=0;j<3;j++)choices[j].setBackground(outline(j==index?0xff403455:TILE,13,j==index?PURPLE:0xff343345));});
   }
   for(int j=0;j<3;j++)choices[j].setBackground(outline(j==0?0xff403455:TILE,13,j==0?PURPLE:0xff343345));
+  gap(shell,15);shell.addView(text("NÁROČNOST",11,MUTED,true));gap(shell,9);
+  LinearLayout difficulties=row();shell.addView(difficulties,lp(-1,44));
+  String[] difficultyNames={"Lehká","Střední","Vysoká"};int[] difficultyColors={GREEN,0xff59a9ff,RED};final int[] difficulty={1};
+  TextView[] difficultyButtons=new TextView[3];
+  for(int k=0;k<3;k++){final int index=k;TextView chip=center("● "+difficultyNames[k],12,difficultyColors[k],true);
+   LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,-1,1);p.setMargins(dp(2),0,dp(2),0);difficulties.addView(chip,p);difficultyButtons[k]=chip;
+   chip.setOnClickListener(v->{difficulty[0]=index+1;for(int j=0;j<3;j++)difficultyButtons[j].setBackground(outline(j==index?0xff403455:TILE,13,j==index?PURPLE:0xff343345));});
+  }
+  for(int j=0;j<3;j++)difficultyButtons[j].setBackground(outline(j==0?0xff403455:TILE,13,j==0?PURPLE:0xff343345));
   gap(shell,22);
   LinearLayout actions=row();shell.addView(actions,lp(-1,52));
   TextView cancel=center("Zrušit",14,MUTED,true);actions.addView(cancel,new LinearLayout.LayoutParams(0,-1,1));cancel.setOnClickListener(v->dialog.dismiss());
@@ -265,7 +279,7 @@ public class MainActivity extends Activity {
    String title=name.getText().toString().trim(),begin=from.getText().toString(),finish=to.getText().toString();
    if(title.isEmpty()){name.setError("Zadej název");return;}
    if(minutes(finish,0)<=minutes(begin,0)){Toast.makeText(this,"Konec musí být později než začátek",Toast.LENGTH_LONG).show();return;}
-   try{JSONArray a=events();JSONObject o=new JSONObject();o.put("date",selected.toString());o.put("title",title);o.put("start",begin);o.put("end",finish);o.put("priority",chosen[0]);a.put(o);save(a);dialog.dismiss();draw();}
+   try{JSONArray a=events();JSONObject o=new JSONObject();o.put("date",selected.toString());o.put("title",title);o.put("start",begin);o.put("end",finish);o.put("priority",chosen[0]);o.put("difficulty",difficulty[0]);a.put(o);save(a);dialog.dismiss();draw();}
    catch(Exception e){Toast.makeText(this,"Událost se nepodařilo uložit",Toast.LENGTH_SHORT).show();}
   });
   ScrollView scroll=new ScrollView(this);scroll.setFillViewport(false);scroll.addView(shell);dialog.setContentView(scroll);
