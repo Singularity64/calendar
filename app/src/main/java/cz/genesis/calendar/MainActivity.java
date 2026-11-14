@@ -81,7 +81,12 @@ public class MainActivity extends Activity {
   LinearLayout heading=column();top.addView(heading,new LinearLayout.LayoutParams(0,-2,1));
   heading.addView(text("GENESIS  /  CALENDAR",11,PURPLE,true));
   heading.addView(text("Můj kalendář",25,WHITE,true));
-  TextView today=center("Dnes",13,PURPLE,true);today.setBackground(outline(SURFACE,16,0xff39324e));pad(today,16,10,16,10);top.addView(today);today.setOnClickListener(v->{selected=LocalDate.now();month=YearMonth.now();draw();});
+  String[] tools={"⌕","▥","⚙"};String[] descriptions={"Hledat","Statistiky","Nastavení"};
+  for(int i=0;i<3;i++){final int index=i;TextView action=center(tools[i],24,PURPLE,true);
+   action.setContentDescription(descriptions[i]);action.setBackground(shape(SURFACE,13));
+   LinearLayout.LayoutParams p=lp(43,43);p.leftMargin=dp(7);top.addView(action,p);
+   action.setOnClickListener(v->{if(index==0)searchEvents();else if(index==1)showStats();else showSettings();});
+  }
   gap(root,19);
   LinearLayout controls=row();root.addView(controls,lp(-1,46));
   TextView prev=center("‹",32,WHITE,false);controls.addView(prev,lp(42,44));
@@ -106,7 +111,7 @@ public class MainActivity extends Activity {
   ScrollView agendaScroll=new ScrollView(this);agendaScroll.setFillViewport(true);
   agendaScroll.setVerticalScrollBarEnabled(true);
   root.addView(agendaScroll,new LinearLayout.LayoutParams(-1,0,1));
-  content=column();agendaScroll.addView(content);agenda();
+  content=column();agendaScroll.addView(content);healthCard();gap(content,12);agenda();
   gap(root,10);
   TextView add=center("+   Nová událost",16,0xff171022,true);add.setBackground(shape(PURPLE,19));root.addView(add,lp(-1,54));add.setOnClickListener(v->addEvent());
  }
@@ -135,6 +140,83 @@ public class MainActivity extends Activity {
   ProgressBar bar=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);bar.setMax(100);bar.setProgress(score(d));bar.setProgressTintList(android.content.res.ColorStateList.valueOf(PURPLE));bar.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(0xff383348));LinearLayout.LayoutParams bp=lp(-1,4);bp.leftMargin=dp(5);bp.rightMargin=dp(5);bp.topMargin=dp(large?7:5);tile.addView(bar,bp);
   if(large)tile.addView(center(count(d)+" úkolů",11,MUTED,false));
   tile.setOnClickListener(v->{selected=d;month=YearMonth.from(d);draw();});
+ }
+ int capacity(){return getPreferences(0).getInt("daily_capacity",10);}
+ boolean healthVisible(){return getPreferences(0).getBoolean("health_visible",true);}
+ int[] dayLoad(LocalDate d){
+  // Each minute is assigned to the highest difficulty to avoid double counting.
+  int[] timeline=new int[1440];JSONArray a=events();
+  for(int i=0;i<a.length();i++){
+   JSONObject o=a.optJSONObject(i);
+   if(o==null||!d.toString().equals(o.optString("date"))||o.optBoolean("done",false))continue;
+   int start=minutes(o.optString("start","09:00"),540),end=minutes(o.optString("end","10:00"),600);
+   int level=Math.max(1,Math.min(3,o.optInt("difficulty",o.optInt("priority",1))));
+   for(int m=start;m<end;m++)timeline[m]=Math.max(timeline[m],level);
+  }
+  int[] load=new int[4];for(int level:timeline)if(level>0)load[level]++;
+  return load;
+ }
+ String hours(int minutes){return String.format(Locale.forLanguageTag("cs"),"%.1f h",minutes/60.0);}
+ void healthCard(){
+  LinearLayout card=column();card.setBackground(shape(SURFACE,20));pad(card,14,12,14,13);content.addView(card,lp(-1,-2));
+  LinearLayout header=row();card.addView(header,lp(-1,43));
+  TextView heading=text("Denní vytížení",16,WHITE,true);header.addView(heading,new LinearLayout.LayoutParams(0,-1,1));
+  boolean visible=healthVisible();TextView arrow=center(visible?"⌄":"›",27,PURPLE,true);header.addView(arrow,lp(44,43));
+  header.setOnClickListener(v->{getPreferences(0).edit().putBoolean("health_visible",!healthVisible()).apply();draw();});
+  if(!visible)return;
+  int[] load=dayLoad(selected),total=load[1]+load[2]+load[3],cap=capacity()*60;
+  int percentage=Math.min(100,(int)Math.round(total*100.0/cap));
+  LinearLayout summary=row();card.addView(summary,lp(-1,38));
+  summary.addView(text(hours(total)+" naplánováno",17,WHITE,true),new LinearLayout.LayoutParams(0,-1,1));
+  summary.addView(text(percentage+" %",22,PURPLE,true));
+  gap(card,8);
+  LinearLayout bar=row();bar.setBackground(shape(0xff393849,10));bar.setClipToOutline(true);card.addView(bar,lp(-1,20));
+  int[] colors={GREEN,0xff59a9ff,RED};
+  int scale=Math.max(total,cap);
+  for(int level=1;level<=3;level++){if(load[level]==0)continue;
+   View section=new View(this);section.setBackgroundColor(colors[level-1]);
+   bar.addView(section,new LinearLayout.LayoutParams(0,-1,(float)load[level]/scale));
+  }
+  if(scale>total){View rest=new View(this);bar.addView(rest,new LinearLayout.LayoutParams(0,-1,(float)(scale-total)/scale));}
+  gap(card,12);
+  LinearLayout legend=row();card.addView(legend,lp(-1,35));
+  String[] labels={"Lehká","Střední","Vysoká"};
+  for(int i=0;i<3;i++){
+   LinearLayout part=column();legend.addView(part,new LinearLayout.LayoutParams(0,-1,1));
+   TextView label=text("● "+labels[i],11,colors[i],true);part.addView(label);
+   part.addView(text(hours(load[i+1]),13,WHITE,true));
+  }
+  gap(card,5);card.addView(text("Obsazený čas z "+capacity()+" h denní kapacity",11,MUTED,false));
+ }
+ void showSettings(){
+  LinearLayout body=column();pad(body,22,10,22,12);
+  body.addView(text("Denní plánovací kapacita",15,WHITE,true));gap(body,12);
+  TextView value=center(capacity()+" hodin",20,PURPLE,true);body.addView(value);
+  SeekBar seek=new SeekBar(this);seek.setMax(10);seek.setProgress(capacity()-6);body.addView(seek);
+  seek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
+   public void onProgressChanged(SeekBar b,int progress,boolean user){value.setText((progress+6)+" hodin");}
+   public void onStartTrackingTouch(SeekBar b){}
+   public void onStopTrackingTouch(SeekBar b){}
+  });
+  CheckBox visible=new CheckBox(this);visible.setText("Zobrazovat denní vytížení");visible.setTextColor(WHITE);visible.setChecked(healthVisible());body.addView(visible);
+  new AlertDialog.Builder(this).setTitle("Nastavení").setView(body).setNegativeButton("Zrušit",null).setPositiveButton("Uložit",(d,w)->{
+   getPreferences(0).edit().putInt("daily_capacity",seek.getProgress()+6).putBoolean("health_visible",visible.isChecked()).apply();draw();
+  }).show();
+ }
+ void showStats(){
+  JSONArray a=events();int done=0,all=0;for(int i=0;i<a.length();i++){JSONObject o=a.optJSONObject(i);if(o==null)continue;all++;if(o.optBoolean("done",false))done++;}
+  new AlertDialog.Builder(this).setTitle("Statistiky").setMessage("Událostí celkem: "+all+"\\nDokončeno: "+done+"\\nZbývá: "+(all-done)+"\\n\\nPodrobné reporty připravujeme.").setPositiveButton("Zavřít",null).show();
+ }
+ void searchEvents(){
+  EditText query=new EditText(this);query.setSingleLine(true);query.setHint("Název události");
+  LinearLayout wrap=column();pad(wrap,20,8,20,4);wrap.addView(query);
+  new AlertDialog.Builder(this).setTitle("Najít událost").setView(wrap).setNegativeButton("Zrušit",null).setPositiveButton("Hledat",(d,w)->{
+   String needle=query.getText().toString().toLowerCase(Locale.ROOT);JSONArray a=events();
+   for(int i=0;i<a.length();i++){JSONObject o=a.optJSONObject(i);if(o!=null&&o.optString("title").toLowerCase(Locale.ROOT).contains(needle)){
+    try{selected=LocalDate.parse(o.optString("date"));month=YearMonth.from(selected);draw();return;}catch(Exception ignored){}
+   }}
+   Toast.makeText(this,"Událost nenalezena",Toast.LENGTH_SHORT).show();
+  }).show();
  }
  void agenda(){
   LinearLayout heading=row();content.addView(heading,lp(-1,40));heading.addView(text("Program dne",19,WHITE,true),new LinearLayout.LayoutParams(0,-1,1));heading.addView(text(selected.format(DateTimeFormatter.ofPattern("d. M. yyyy")),12,MUTED,false));
