@@ -164,7 +164,7 @@ public class MainActivity extends Activity {
   boolean visible=healthVisible();TextView arrow=center(visible?"⌄":"›",27,PURPLE,true);header.addView(arrow,lp(44,43));
   header.setOnClickListener(v->{getPreferences(0).edit().putBoolean("health_visible",!healthVisible()).apply();draw();});
   if(!visible)return;
-  int[] load=dayLoad(selected),total=load[1]+load[2]+load[3],cap=capacity()*60;
+  int[] load=dayLoad(selected);int total=load[1]+load[2]+load[3],cap=capacity()*60;
   int percentage=Math.min(100,(int)Math.round(total*100.0/cap));
   LinearLayout summary=row();card.addView(summary,lp(-1,38));
   summary.addView(text(hours(total)+" naplánováno",17,WHITE,true),new LinearLayout.LayoutParams(0,-1,1));
