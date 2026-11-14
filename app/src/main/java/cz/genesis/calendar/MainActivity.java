@@ -27,7 +27,23 @@ public class MainActivity extends Activity {
  JSONArray events(){try{return new JSONArray(getPreferences(0).getString("events","[]"));}catch(Exception e){return new JSONArray();}}
  void save(JSONArray a){getPreferences(0).edit().putString("events",a.toString()).apply();}
  int count(LocalDate d){int n=0;JSONArray a=events();for(int i=0;i<a.length();i++){JSONObject o=a.optJSONObject(i);if(o!=null&&d.toString().equals(o.optString("date")))n++;}return n;}
- int score(LocalDate d){return Math.min(100,count(d)*20);}
+ int score(LocalDate d){
+  JSONArray a=events();boolean[] busy=new boolean[1440];int n=0,weight=0;
+  for(int i=0;i<a.length();i++){
+   JSONObject o=a.optJSONObject(i);if(o==null||!d.toString().equals(o.optString("date")))continue;
+   n++;weight+=Math.max(1,Math.min(3,o.optInt("priority",1)));
+   int start=minutes(o.optString("start","09:00"),540),end=minutes(o.optString("end","10:00"),600);
+   if(end<=start)continue;
+   for(int m=start;m<end;m++)busy[m]=true;
+  }
+  if(n==0)return 0;
+  int used=0;for(boolean b:busy)if(b)used++;
+  // 70 % délka vůči 12 h, 20 % počet událostí vůči 8, 10 % priorita.
+  return Math.min(100,(int)Math.round(70.0*used/720.0+20.0*n/8.0+10.0*weight/24.0));
+ }
+ int minutes(String time,int fallback){
+  try{String[] parts=time.split(":");int h=Integer.parseInt(parts[0]),m=Integer.parseInt(parts[1]);return h>=0&&h<24&&m>=0&&m<60?h*60+m:fallback;}catch(Exception e){return fallback;}
+ }
  String weekday(LocalDate d){return d.getDayOfWeek().getDisplayName(TextStyle.SHORT,new Locale("cs"));}
  String monthName(){return month.format(DateTimeFormatter.ofPattern("LLLL yyyy",new Locale("cs")));}
  int accent(LocalDate d){JSONArray a=events();int p=0;for(int i=0;i<a.length();i++){JSONObject o=a.optJSONObject(i);if(o!=null&&d.toString().equals(o.optString("date")))p=Math.max(p,o.optInt("priority",1));}return p==3?RED:p==2?AMBER:p==1?GREEN:MUTED;}
@@ -89,7 +105,9 @@ public class MainActivity extends Activity {
   for(int i=0;i<a.length();i++){JSONObject o=a.optJSONObject(i);if(o==null||!selected.toString().equals(o.optString("date")))continue;found=true;final int at=i;
    LinearLayout line=row();line.setBackground(shape(SURFACE,17));pad(line,13,9,10,9);LinearLayout.LayoutParams p=lp(-1,62);p.bottomMargin=dp(7);content.addView(line,p);
    TextView bullet=center("●",16,o.optInt("priority",1)==3?RED:o.optInt("priority",1)==2?AMBER:GREEN,true);line.addView(bullet,lp(23,-1));
-   TextView item=text(o.optString("title"),15,WHITE,true);line.addView(item,new LinearLayout.LayoutParams(0,-1,1));
+   LinearLayout info=column();line.addView(info,new LinearLayout.LayoutParams(0,-2,1));
+   info.addView(text(o.optString("title"),15,WHITE,true));
+   info.addView(text(o.optString("start","09:00")+"–"+o.optString("end","10:00"),12,MUTED,false));
    TextView del=center("×",23,MUTED,false);line.addView(del,lp(39,-1));del.setOnClickListener(v->{JSONArray updated=new JSONArray();for(int j=0;j<a.length();j++)if(j!=at)updated.put(a.opt(j));save(updated);draw();});
   }
   if(!found){TextView empty=center("Zatím žádné události. Volný den ✨",14,MUTED,false);empty.setBackground(shape(SURFACE,17));content.addView(empty,lp(-1,78));}
@@ -97,7 +115,37 @@ public class MainActivity extends Activity {
  void addEvent(){
   LinearLayout form=column();pad(form,22,8,22,4);
   EditText input=new EditText(this);input.setSingleLine(true);input.setHint("Název události");form.addView(input);
-  String[] options={"Běžná","Důležitá","Urgentní"};Spinner priority=new Spinner(this);ArrayAdapter<String> adapter=new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,options);priority.setAdapter(adapter);form.addView(priority);
-  new AlertDialog.Builder(this).setTitle("Nová událost • "+selected).setView(form).setNegativeButton("Zrušit",null).setPositiveButton("Uložit",(dialog,which)->{String title=input.getText().toString().trim();if(title.isEmpty())return;try{JSONArray a=events();JSONObject o=new JSONObject();o.put("date",selected.toString());o.put("title",title);o.put("priority",priority.getSelectedItemPosition()+1);a.put(o);save(a);draw();}catch(Exception ignored){}}).show();
+  gap(form,12);
+  TextView startLabel=text("Začátek",13,MUTED,true);form.addView(startLabel);
+  TextView from=text("09:00   ▾",20,WHITE,true);pad(from,8,12,8,12);from.setBackground(shape(SURFACE,12));form.addView(from);
+  gap(form,10);
+  TextView endLabel=text("Konec",13,MUTED,true);form.addView(endLabel);
+  TextView to=text("10:00   ▾",20,WHITE,true);pad(to,8,12,8,12);to.setBackground(shape(SURFACE,12));form.addView(to);
+  from.setOnClickListener(v->pickTime(from));
+  to.setOnClickListener(v->pickTime(to));
+  gap(form,12);
+  form.addView(text("Priorita",13,MUTED,true));
+  String[] options={"Běžná","Důležitá","Urgentní"};Spinner priority=new Spinner(this);
+  ArrayAdapter<String> adapter=new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,options);
+  priority.setAdapter(adapter);form.addView(priority);
+  AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Nová událost • "+selected).setView(form).setNegativeButton("Zrušit",null).setPositiveButton("Uložit",null).create();
+  dialog.setOnShowListener(ignored->dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{
+   String title=input.getText().toString().trim();
+   String begin=from.getText().toString().substring(0,5),finish=to.getText().toString().substring(0,5);
+   if(title.isEmpty()){input.setError("Zadej název");return;}
+   if(minutes(finish,0)<=minutes(begin,0)){Toast.makeText(this,"Konec musí být později než začátek",Toast.LENGTH_LONG).show();return;}
+   try{
+    JSONArray a=events();JSONObject o=new JSONObject();
+    o.put("date",selected.toString());o.put("title",title);
+    o.put("start",begin);o.put("end",finish);o.put("priority",priority.getSelectedItemPosition()+1);
+    a.put(o);save(a);dialog.dismiss();draw();
+   }catch(Exception e){Toast.makeText(this,"Událost se nepodařilo uložit",Toast.LENGTH_SHORT).show();}
+  }));
+  dialog.show();
+ }
+ void pickTime(TextView target){
+  String time=target.getText().toString().substring(0,5);
+  int m=minutes(time,540);
+  new TimePickerDialog(this,(picker,h,min)->target.setText(String.format(Locale.ROOT,"%02d:%02d   ▾",h,min)),m/60,m%60,true).show();
  }
 }
