@@ -47,9 +47,36 @@ public class MainActivity extends Activity {
  String weekday(LocalDate d){return d.getDayOfWeek().getDisplayName(TextStyle.SHORT,new Locale("cs"));}
  String monthName(){return month.format(DateTimeFormatter.ofPattern("LLLL yyyy",new Locale("cs")));}
  int accent(LocalDate d){JSONArray a=events();int p=0;for(int i=0;i<a.length();i++){JSONObject o=a.optJSONObject(i);if(o!=null&&d.toString().equals(o.optString("date")))p=Math.max(p,o.optInt("priority",1));}return p==3?RED:p==2?AMBER:p==1?GREEN:MUTED;}
- @Override public void onCreate(Bundle b){super.onCreate(b);getWindow().setStatusBarColor(BG);getWindow().setNavigationBarColor(BG);draw();}
+ @Override public void onCreate(Bundle b){
+  super.onCreate(b);
+  getWindow().setStatusBarColor(BG);
+  getWindow().setNavigationBarColor(BG);
+  // Edge-to-edge: system bars are measured, never approximated with a fixed dp offset.
+  if(android.os.Build.VERSION.SDK_INT>=30){
+   getWindow().setDecorFitsSystemWindows(false);
+  }else{
+   getWindow().getDecorView().setSystemUiVisibility(
+    View.SYSTEM_UI_FLAG_LAYOUT_STABLE|View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN|View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
+  }
+  draw();
+ }
  void draw(){
-  root=column();root.setBackgroundColor(BG);pad(root,18,15,18,12);setContentView(root);
+  root=column();root.setBackgroundColor(BG);
+  pad(root,18,15,18,12);
+  root.setOnApplyWindowInsetsListener((view,insets)->{
+   int topInset,bottomInset;
+   if(android.os.Build.VERSION.SDK_INT>=30){
+    android.graphics.Insets bars=insets.getInsets(
+     WindowInsets.Type.statusBars()|WindowInsets.Type.displayCutout()|WindowInsets.Type.navigationBars());
+    topInset=bars.top;bottomInset=bars.bottom;
+   }else{
+    topInset=insets.getSystemWindowInsetTop();
+    bottomInset=insets.getSystemWindowInsetBottom();
+   }
+   view.setPadding(dp(18),topInset+dp(15),dp(18),bottomInset+dp(12));
+   return insets;
+  });
+  setContentView(root);root.requestApplyInsets();
   LinearLayout top=row();root.addView(top,lp(-1,52));
   LinearLayout heading=column();top.addView(heading,new LinearLayout.LayoutParams(0,-2,1));
   heading.addView(text("GENESIS  /  CALENDAR",11,PURPLE,true));
