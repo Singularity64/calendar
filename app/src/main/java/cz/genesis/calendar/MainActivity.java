@@ -108,12 +108,55 @@ public class MainActivity extends Activity {
   content=column();calendarScroll.addView(content);
   if(mode==0)monthView();else if(mode==1)weekView();else listView();
   gap(root,14);
+  TextView pull=center("━━━━    Program dne  ↑",12,MUTED,true);
+  pull.setContentDescription("Tažením nahoru rozbalit události");
+  root.addView(pull,lp(-1,34));
+  pull.setOnClickListener(v->expandAgenda());
+  pull.setOnTouchListener(new View.OnTouchListener(){
+   float downY;
+   public boolean onTouch(View v,android.view.MotionEvent event){
+    if(event.getActionMasked()==android.view.MotionEvent.ACTION_DOWN){downY=event.getRawY();return true;}
+    if(event.getActionMasked()==android.view.MotionEvent.ACTION_UP){
+     if(downY-event.getRawY()>dp(35)||Math.abs(downY-event.getRawY())<dp(12))expandAgenda();
+     return true;
+    }
+    return true;
+   }
+  });
   ScrollView agendaScroll=new ScrollView(this);agendaScroll.setFillViewport(true);
   agendaScroll.setVerticalScrollBarEnabled(true);
   root.addView(agendaScroll,new LinearLayout.LayoutParams(-1,0,1));
   content=column();agendaScroll.addView(content);healthCard();gap(content,12);agenda();
   gap(root,10);
   TextView add=center("+   Nová událost",16,0xff171022,true);add.setBackground(shape(PURPLE,19));root.addView(add,lp(-1,54));add.setOnClickListener(v->addEvent());
+ }
+ void expandAgenda(){
+  final Dialog sheet=new Dialog(this);
+  LinearLayout panel=column();panel.setBackground(shape(SURFACE,24));pad(panel,16,8,16,14);
+  TextView handle=center("━━━━",22,PURPLE,true);panel.addView(handle,lp(-1,35));
+  handle.setContentDescription("Tažením dolů zavřít přehled událostí");
+  handle.setOnClickListener(v->sheet.dismiss());
+  handle.setOnTouchListener(new View.OnTouchListener(){
+   float downY;
+   public boolean onTouch(View v,android.view.MotionEvent event){
+    if(event.getActionMasked()==android.view.MotionEvent.ACTION_DOWN){downY=event.getRawY();return true;}
+    if(event.getActionMasked()==android.view.MotionEvent.ACTION_UP){if(event.getRawY()-downY>dp(35)||Math.abs(event.getRawY()-downY)<dp(12))sheet.dismiss();return true;}
+    return true;
+   }
+  });
+  ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);panel.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
+  LinearLayout oldContent=content;content=column();scroll.addView(content);agenda();content=oldContent;
+  sheet.setContentView(panel);
+  Window window=sheet.getWindow();if(window!=null){
+   window.setBackgroundDrawableResource(android.R.color.transparent);
+   window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+   WindowManager.LayoutParams attrs=window.getAttributes();attrs.gravity=Gravity.BOTTOM;
+   attrs.width=WindowManager.LayoutParams.MATCH_PARENT;
+   attrs.height=(int)(getResources().getDisplayMetrics().heightPixels*0.70f);
+   attrs.dimAmount=0.35f;window.setAttributes(attrs);
+  }
+  sheet.show();
+  if(sheet.getWindow()!=null)sheet.getWindow().setLayout(-1,(int)(getResources().getDisplayMetrics().heightPixels*0.70f));
  }
  void monthView(){
   LinearLayout box=column();box.setBackground(shape(SURFACE,22));pad(box,9,13,9,12);content.addView(box,lp(-1,-2));
