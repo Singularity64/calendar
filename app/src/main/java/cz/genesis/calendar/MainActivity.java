@@ -2,54 +2,102 @@ package cz.genesis.calendar;
 import android.app.*;
 import android.os.Bundle;
 import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.view.*;
 import android.widget.*;
 import org.json.*;
 import java.time.*;
 import java.time.format.*;
 import java.util.*;
+
 public class MainActivity extends Activity {
- final int bg=0xff111218, card=0xff20212b, purple=0xffa78bfa;
- LinearLayout main,body; LocalDate selected=LocalDate.now(); YearMonth month=YearMonth.now(); int mode=0;
- int dp(int n){return (int)(n*getResources().getDisplayMetrics().density+.5f);}
- TextView label(String s,int size){TextView t=new TextView(this);t.setText(s);t.setTextSize(size);t.setTextColor(Color.WHITE);t.setGravity(Gravity.CENTER);return t;}
+ final int BG=0xff101017, SURFACE=0xff1b1b28, TILE=0xff242436, PURPLE=0xffaa8bff, WHITE=0xfff5f3ff, MUTED=0xff9997ae, RED=0xffff747e, AMBER=0xffffbd69, GREEN=0xff7bd8a5;
+ LinearLayout root,content; LocalDate selected=LocalDate.now(); YearMonth month=YearMonth.now(); int mode=0;
+ int dp(float n){return (int)(n*getResources().getDisplayMetrics().density+.5f);}
+ GradientDrawable shape(int color,int radius){GradientDrawable d=new GradientDrawable();d.setColor(color);d.setCornerRadius(dp(radius));return d;}
+ GradientDrawable outline(int color,int radius,int border){GradientDrawable d=shape(color,radius);d.setStroke(dp(1),border);return d;}
+ TextView text(String s,int size,int color,boolean bold){TextView t=new TextView(this);t.setText(s);t.setTextSize(size);t.setTextColor(color);if(bold)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD);t.setGravity(Gravity.CENTER_VERTICAL);return t;}
+ LinearLayout column(){LinearLayout l=new LinearLayout(this);l.setOrientation(1);return l;}
+ LinearLayout row(){LinearLayout l=new LinearLayout(this);l.setOrientation(0);l.setGravity(Gravity.CENTER_VERTICAL);return l;}
+ LinearLayout.LayoutParams lp(int w,int h){return new LinearLayout.LayoutParams(w<0?w:dp(w),h<0?h:dp(h));}
+ void pad(View v,int a,int b,int c,int d){v.setPadding(dp(a),dp(b),dp(c),dp(d));}
+ void gap(LinearLayout l,int h){View v=new View(this);l.addView(v,lp(1,h));}
+ TextView center(String s,int size,int color,boolean bold){TextView t=text(s,size,color,bold);t.setGravity(Gravity.CENTER);return t;}
  JSONArray events(){try{return new JSONArray(getPreferences(0).getString("events","[]"));}catch(Exception e){return new JSONArray();}}
  void save(JSONArray a){getPreferences(0).edit().putString("events",a.toString()).apply();}
  int count(LocalDate d){int n=0;JSONArray a=events();for(int i=0;i<a.length();i++){JSONObject o=a.optJSONObject(i);if(o!=null&&d.toString().equals(o.optString("date")))n++;}return n;}
  int score(LocalDate d){return Math.min(100,count(d)*20);}
- @Override public void onCreate(Bundle b){super.onCreate(b);draw();}
+ String weekday(LocalDate d){return d.getDayOfWeek().getDisplayName(TextStyle.SHORT,new Locale("cs"));}
+ String monthName(){return month.format(DateTimeFormatter.ofPattern("LLLL yyyy",new Locale("cs")));}
+ int accent(LocalDate d){JSONArray a=events();int p=0;for(int i=0;i<a.length();i++){JSONObject o=a.optJSONObject(i);if(o!=null&&d.toString().equals(o.optString("date")))p=Math.max(p,o.optInt("priority",1));}return p==3?RED:p==2?AMBER:p==1?GREEN:MUTED;}
+ @Override public void onCreate(Bundle b){super.onCreate(b);getWindow().setStatusBarColor(BG);getWindow().setNavigationBarColor(BG);draw();}
  void draw(){
-  main=new LinearLayout(this);main.setOrientation(1);main.setBackgroundColor(bg);main.setPadding(dp(12),dp(18),dp(12),dp(10));setContentView(main);
-  LinearLayout nav=new LinearLayout(this);main.addView(nav);
-  Button prev=new Button(this);prev.setText("‹");nav.addView(prev,new LinearLayout.LayoutParams(dp(54),dp(52)));
-  TextView heading=label(mode==0?month.format(DateTimeFormatter.ofPattern("LLLL yyyy",new Locale("cs"))):"Týden od "+selected.minusDays(selected.getDayOfWeek().getValue()-1),19);nav.addView(heading,new LinearLayout.LayoutParams(0,dp(52),1));
-  Button next=new Button(this);next.setText("›");nav.addView(next,new LinearLayout.LayoutParams(dp(54),dp(52)));
+  root=column();root.setBackgroundColor(BG);pad(root,18,15,18,12);setContentView(root);
+  LinearLayout top=row();root.addView(top,lp(-1,52));
+  LinearLayout heading=column();top.addView(heading,new LinearLayout.LayoutParams(0,-2,1));
+  heading.addView(text("GENESIS  /  CALENDAR",11,PURPLE,true));
+  heading.addView(text("Můj kalendář",25,WHITE,true));
+  TextView today=center("Dnes",13,PURPLE,true);today.setBackground(outline(SURFACE,16,0xff39324e));pad(today,16,10,16,10);top.addView(today);today.setOnClickListener(v->{selected=LocalDate.now();month=YearMonth.now();draw();});
+  gap(root,19);
+  LinearLayout controls=row();root.addView(controls,lp(-1,46));
+  TextView prev=center("‹",32,WHITE,false);controls.addView(prev,lp(42,44));
+  TextView title=center(mode==0?monthName():"Týden "+selected.minusDays(selected.getDayOfWeek().getValue()-1).format(DateTimeFormatter.ofPattern("d. M.")),19,WHITE,true);controls.addView(title,new LinearLayout.LayoutParams(0,-1,1));
+  TextView next=center("›",32,WHITE,false);controls.addView(next,lp(42,44));
   prev.setOnClickListener(v->{if(mode==0)month=month.minusMonths(1);else selected=selected.minusWeeks(1);draw();});
   next.setOnClickListener(v->{if(mode==0)month=month.plusMonths(1);else selected=selected.plusWeeks(1);draw();});
-  LinearLayout tabs=new LinearLayout(this);main.addView(tabs);String[] names={"Měsíc","Týden 3×3","Seznam"};
-  for(int i=0;i<3;i++){final int index=i;Button b=new Button(this);b.setText(names[i]);tabs.addView(b,new LinearLayout.LayoutParams(0,dp(52),1));b.setOnClickListener(v->{mode=index;draw();});}
-  ScrollView scroll=new ScrollView(this);main.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));body=new LinearLayout(this);body.setOrientation(1);scroll.addView(body);
+  gap(root,13);
+  LinearLayout tabs=row();tabs.setBackground(shape(SURFACE,18));pad(tabs,4,4,4,4);root.addView(tabs,lp(-1,50));
+  String[] names={"Měsíc","Týden 3×3","Seznam"};
+  for(int i=0;i<3;i++){final int idx=i;TextView tab=center(names[i],13,i==mode?WHITE:MUTED,i==mode);if(i==mode)tab.setBackground(shape(0xff494064,15));tabs.addView(tab,new LinearLayout.LayoutParams(0,-1,1));tab.setOnClickListener(v->{mode=idx;draw();});}
+  gap(root,16);
+  ScrollView scroll=new ScrollView(this);scroll.setFillViewport(false);root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));content=column();scroll.addView(content);
   if(mode==0)monthView();else if(mode==1)weekView();else listView();
-  TextView title=label("Události: "+selected+"  •  vytížení "+score(selected)+" %",16);body.addView(title,new LinearLayout.LayoutParams(-1,dp(60)));
-  JSONArray a=events();for(int i=0;i<a.length();i++){JSONObject o=a.optJSONObject(i);if(o==null||!selected.toString().equals(o.optString("date")))continue;
-   LinearLayout line=new LinearLayout(this);body.addView(line);TextView item=label(o.optString("title"),16);line.addView(item,new LinearLayout.LayoutParams(0,dp(52),1));
-   final int at=i;Button del=new Button(this);del.setText("×");line.addView(del);del.setOnClickListener(v->{JSONArray updated=new JSONArray();for(int j=0;j<a.length();j++)if(j!=at)updated.put(a.opt(j));save(updated);draw();});
+  gap(content,19);agenda();
+  gap(root,10);
+  TextView add=center("+   Nová událost",16,0xff171022,true);add.setBackground(shape(PURPLE,19));root.addView(add,lp(-1,54));add.setOnClickListener(v->addEvent());
+ }
+ void monthView(){
+  LinearLayout box=column();box.setBackground(shape(SURFACE,22));pad(box,9,13,9,12);content.addView(box,lp(-1,-2));
+  String[] names={"PO","ÚT","ST","ČT","PÁ","SO","NE"};LinearLayout header=row();box.addView(header,lp(-1,32));
+  for(String s:names)header.addView(center(s,11,MUTED,true),new LinearLayout.LayoutParams(0,-1,1));
+  int offset=month.atDay(1).getDayOfWeek().getValue()-1;int cells=((offset+month.lengthOfMonth()+6)/7)*7;
+  for(int r=0;r<cells/7;r++){LinearLayout line=row();box.addView(line,lp(-1,68));
+   for(int c=0;c<7;c++){int day=r*7+c-offset+1;if(day<1||day>month.lengthOfMonth()){line.addView(new View(this),new LinearLayout.LayoutParams(0,-1,1));continue;}dayTile(line,month.atDay(day),false);}
   }
-  Button add=new Button(this);add.setText("+ Přidat událost");main.addView(add);add.setOnClickListener(v->addEvent());
  }
- void monthView(){int offset=month.atDay(1).getDayOfWeek().getValue()-1;String[] names={"Po","Út","St","Čt","Pá","So","Ne"};LinearLayout header=new LinearLayout(this);body.addView(header);
- for(String name:names)header.addView(label(name,12),new LinearLayout.LayoutParams(0,dp(32),1));
- int cells=((offset+month.lengthOfMonth()+6)/7)*7;
- for(int r=0;r<cells/7;r++){LinearLayout row=new LinearLayout(this);body.addView(row);for(int c=0;c<7;c++){int day=r*7+c-offset+1;if(day<1||day>month.lengthOfMonth()){row.addView(new View(this),new LinearLayout.LayoutParams(0,dp(67),1));continue;}LocalDate d=month.atDay(day);dayTile(row,d,false);}}
+ void weekView(){
+  LocalDate monday=selected.minusDays(selected.getDayOfWeek().getValue()-1);
+  for(int r=0;r<3;r++){LinearLayout line=row();content.addView(line,lp(-1,125));for(int c=0;c<3;c++){int i=r*3+c;if(i<7)dayTile(line,monday.plusDays(i),true);else{LinearLayout tile=column();tile.setGravity(Gravity.CENTER);tile.setBackground(shape(SURFACE,18));LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(115),1);p.setMargins(dp(3),dp(3),dp(3),dp(3));line.addView(tile,p);tile.addView(center(i==7?"TÝDEN":"PŘEHLED",12,MUTED,true));int total=0;for(int j=0;j<7;j++)total+=count(monday.plusDays(j));tile.addView(center(i==7?total+" úkolů":"● priority",16,PURPLE,true));}}}
  }
- void weekView(){LocalDate monday=selected.minusDays(selected.getDayOfWeek().getValue()-1);for(int r=0;r<3;r++){LinearLayout row=new LinearLayout(this);body.addView(row);for(int c=0;c<3;c++){int i=r*3+c;if(i<7)dayTile(row,monday.plusDays(i),true);else {TextView extra=label(i==7?"Souhrn týdne":"Priority • vytížení",12);row.addView(extra,new LinearLayout.LayoutParams(0,dp(118),1));}}}}
- void listView(){LocalDate monday=selected.minusDays(selected.getDayOfWeek().getValue()-1);for(int i=0;i<7;i++){LocalDate d=monday.plusDays(i);Button b=new Button(this);b.setText(d+"  •  "+count(d)+" událostí  •  "+score(d)+" %");body.addView(b);b.setOnClickListener(v->{selected=d;draw();});}}
- void dayTile(LinearLayout row,LocalDate d,boolean large){LinearLayout tile=new LinearLayout(this);tile.setOrientation(1);tile.setGravity(Gravity.CENTER);tile.setBackgroundColor(d.equals(selected)?0xff49366a:card);
- LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(large?118:67),1);lp.setMargins(dp(2),dp(2),dp(2),dp(2));row.addView(tile,lp);
- tile.addView(label((large?d.getDayOfWeek().getDisplayName(java.time.format.TextStyle.SHORT,new Locale("cs"))+" ":"")+d.getDayOfMonth(),large?16:14));
- tile.addView(label(score(d)+" %",large?17:10));
- ProgressBar bar=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);bar.setMax(100);bar.setProgress(score(d));tile.addView(bar,new LinearLayout.LayoutParams(-1,dp(5)));
- if(large)tile.addView(label(count(d)+" úkolů",12));tile.setOnClickListener(v->{selected=d;month=YearMonth.from(d);draw();});
+ void listView(){LocalDate monday=selected.minusDays(selected.getDayOfWeek().getValue()-1);for(int i=0;i<7;i++){LocalDate d=monday.plusDays(i);LinearLayout line=row();line.setBackground(shape(d.equals(selected)?0xff39304f:SURFACE,17));pad(line,15,10,15,10);LinearLayout.LayoutParams p=lp(-1,63);p.bottomMargin=dp(7);content.addView(line,p);TextView day=text(weekday(d)+" "+d.getDayOfMonth()+".",16,WHITE,true);line.addView(day,new LinearLayout.LayoutParams(0,-1,1));line.addView(text(count(d)+" událostí",12,MUTED,false));TextView value=center("  "+score(d)+" %",15,PURPLE,true);line.addView(value);line.setOnClickListener(v->{selected=d;draw();});}}
+ void dayTile(LinearLayout line,LocalDate d,boolean large){
+  LinearLayout tile=column();tile.setGravity(Gravity.CENTER);tile.setBackground(d.equals(selected)?outline(0xff403455,17,PURPLE):shape(large?SURFACE:0xff20202e,17));
+  LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(large?115:61),1);p.setMargins(dp(3),dp(3),dp(3),dp(3));line.addView(tile,p);pad(tile,4,4,4,5);
+  if(large)tile.addView(center(weekday(d).toUpperCase(new Locale("cs")),11,MUTED,true));
+  LinearLayout digits=row();digits.setGravity(Gravity.CENTER);tile.addView(digits,lp(-1,large?31:27));
+  digits.addView(center(""+d.getDayOfMonth(),large?23:17,WHITE,true));
+  if(count(d)>0){TextView dot=center(" ●",11,accent(d),true);digits.addView(dot);}
+  if(large)tile.addView(center(score(d)+" %",16,PURPLE,true));
+  ProgressBar bar=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);bar.setMax(100);bar.setProgress(score(d));bar.setProgressTintList(android.content.res.ColorStateList.valueOf(PURPLE));bar.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(0xff383348));LinearLayout.LayoutParams bp=lp(-1,4);bp.leftMargin=dp(5);bp.rightMargin=dp(5);bp.topMargin=dp(large?7:5);tile.addView(bar,bp);
+  if(large)tile.addView(center(count(d)+" úkolů",11,MUTED,false));
+  tile.setOnClickListener(v->{selected=d;month=YearMonth.from(d);draw();});
  }
- void addEvent(){EditText input=new EditText(this);input.setHint("Název události");new AlertDialog.Builder(this).setTitle("Událost • "+selected).setView(input).setNegativeButton("Zrušit",null).setPositiveButton("Uložit",(dialog,which)->{String title=input.getText().toString().trim();if(title.isEmpty())return;try{JSONArray a=events();JSONObject o=new JSONObject();o.put("date",selected.toString());o.put("title",title);a.put(o);save(a);draw();}catch(Exception ignored){}}).show();}
+ void agenda(){
+  LinearLayout heading=row();content.addView(heading,lp(-1,40));heading.addView(text("Program dne",19,WHITE,true),new LinearLayout.LayoutParams(0,-1,1));heading.addView(text(selected.format(DateTimeFormatter.ofPattern("d. M. yyyy")),12,MUTED,false));
+  JSONArray a=events();boolean found=false;
+  for(int i=0;i<a.length();i++){JSONObject o=a.optJSONObject(i);if(o==null||!selected.toString().equals(o.optString("date")))continue;found=true;final int at=i;
+   LinearLayout line=row();line.setBackground(shape(SURFACE,17));pad(line,13,9,10,9);LinearLayout.LayoutParams p=lp(-1,62);p.bottomMargin=dp(7);content.addView(line,p);
+   TextView bullet=center("●",16,o.optInt("priority",1)==3?RED:o.optInt("priority",1)==2?AMBER:GREEN,true);line.addView(bullet,lp(23,-1));
+   TextView item=text(o.optString("title"),15,WHITE,true);line.addView(item,new LinearLayout.LayoutParams(0,-1,1));
+   TextView del=center("×",23,MUTED,false);line.addView(del,lp(39,-1));del.setOnClickListener(v->{JSONArray updated=new JSONArray();for(int j=0;j<a.length();j++)if(j!=at)updated.put(a.opt(j));save(updated);draw();});
+  }
+  if(!found){TextView empty=center("Zatím žádné události. Volný den ✨",14,MUTED,false);empty.setBackground(shape(SURFACE,17));content.addView(empty,lp(-1,78));}
+ }
+ void addEvent(){
+  LinearLayout form=column();pad(form,22,8,22,4);
+  EditText input=new EditText(this);input.setSingleLine(true);input.setHint("Název události");form.addView(input);
+  String[] options={"Běžná","Důležitá","Urgentní"};Spinner priority=new Spinner(this);ArrayAdapter<String> adapter=new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,options);priority.setAdapter(adapter);form.addView(priority);
+  new AlertDialog.Builder(this).setTitle("Nová událost • "+selected).setView(form).setNegativeButton("Zrušit",null).setPositiveButton("Uložit",(dialog,which)->{String title=input.getText().toString().trim();if(title.isEmpty())return;try{JSONArray a=events();JSONObject o=new JSONObject();o.put("date",selected.toString());o.put("title",title);o.put("priority",priority.getSelectedItemPosition()+1);a.put(o);save(a);draw();}catch(Exception ignored){}}).show();
+ }
 }
