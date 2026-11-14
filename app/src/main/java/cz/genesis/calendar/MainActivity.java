@@ -67,9 +67,19 @@ public class MainActivity extends Activity {
   String[] names={"Měsíc","Týden 3×3","Seznam"};
   for(int i=0;i<3;i++){final int idx=i;TextView tab=center(names[i],13,i==mode?WHITE:MUTED,i==mode);if(i==mode)tab.setBackground(shape(0xff494064,15));tabs.addView(tab,new LinearLayout.LayoutParams(0,-1,1));tab.setOnClickListener(v->{mode=idx;draw();});}
   gap(root,16);
-  ScrollView scroll=new ScrollView(this);scroll.setFillViewport(false);root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));content=column();scroll.addView(content);
+  // Calendar stays above; the daily agenda has its own vertical scroll area.
+  ScrollView calendarScroll=new ScrollView(this);calendarScroll.setFillViewport(false);
+  int calendarMax=dp(mode==0?340:mode==1?330:230);
+  int available=getResources().getDisplayMetrics().heightPixels;
+  calendarMax=Math.min(calendarMax,(int)(available*0.43f));
+  root.addView(calendarScroll,new LinearLayout.LayoutParams(-1,calendarMax));
+  content=column();calendarScroll.addView(content);
   if(mode==0)monthView();else if(mode==1)weekView();else listView();
-  gap(content,19);agenda();
+  gap(root,14);
+  ScrollView agendaScroll=new ScrollView(this);agendaScroll.setFillViewport(true);
+  agendaScroll.setVerticalScrollBarEnabled(true);
+  root.addView(agendaScroll,new LinearLayout.LayoutParams(-1,0,1));
+  content=column();agendaScroll.addView(content);agenda();
   gap(root,10);
   TextView add=center("+   Nová událost",16,0xff171022,true);add.setBackground(shape(PURPLE,19));root.addView(add,lp(-1,54));add.setOnClickListener(v->addEvent());
  }
