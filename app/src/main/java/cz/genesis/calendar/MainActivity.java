@@ -195,15 +195,39 @@ public class MainActivity extends Activity {
   box.addView(center(label,10,MUTED,true));box.addView(center(value,21,WHITE,true));return box;
  }
  void pickTime(TextView target){
-  int m=minutes(target.getText().toString(),540);
-  final Dialog picker=new Dialog(this);LinearLayout shell=column();shell.setBackground(shape(SURFACE,24));pad(shell,20,22,20,18);
-  shell.addView(text("Vybrat čas",21,WHITE,true));gap(shell,15);
-  LinearLayout wheels=row();wheels.setGravity(Gravity.CENTER);shell.addView(wheels,lp(-1,170));
-  NumberPicker hour=new NumberPicker(this);hour.setMinValue(0);hour.setMaxValue(23);hour.setValue(m/60);hour.setWrapSelectorWheel(true);wheels.addView(hour,lp(95,160));
-  wheels.addView(center(":",25,PURPLE,true),lp(24,160));
-  NumberPicker minute=new NumberPicker(this);minute.setMinValue(0);minute.setMaxValue(59);minute.setValue(m%60);minute.setWrapSelectorWheel(true);wheels.addView(minute,lp(95,160));
-  gap(shell,15);TextView confirm=center("Potvrdit",16,0xff171022,true);confirm.setBackground(shape(PURPLE,16));shell.addView(confirm,lp(-1,52));
-  confirm.setOnClickListener(v->{target.setText(String.format(Locale.ROOT,"%02d:%02d",hour.getValue(),minute.getValue()));picker.dismiss();});
-  picker.setContentView(shell);picker.show();Window w=picker.getWindow();if(w!=null){w.setBackgroundDrawableResource(android.R.color.transparent);w.setLayout(getResources().getDisplayMetrics().widthPixels-dp(48),WindowManager.LayoutParams.WRAP_CONTENT);}
+  int initial=minutes(target.getText().toString(),540);
+  final int[] hour={initial/60},minute={initial%60};
+  final Dialog picker=new Dialog(this);
+  LinearLayout shell=column();shell.setBackground(shape(SURFACE,26));pad(shell,20,22,20,20);
+  LinearLayout heading=row();shell.addView(heading,lp(-1,42));
+  heading.addView(text("Vybrat čas",22,WHITE,true),new LinearLayout.LayoutParams(0,-1,1));
+  TextView preview=center("",19,PURPLE,true);preview.setBackground(shape(0xff302a42,12));pad(preview,12,6,12,6);heading.addView(preview);
+  gap(shell,17);
+  LinearLayout wheels=row();shell.addView(wheels,lp(-1,230));
+  LinearLayout hours=arrowColumn("HODINY",hour,23,preview,hour,minute);
+  LinearLayout mins=arrowColumn("MINUTY",minute,59,preview,hour,minute);
+  wheels.addView(hours,new LinearLayout.LayoutParams(0,-1,1));
+  TextView colon=center(":",28,PURPLE,true);wheels.addView(colon,lp(28,-1));
+  wheels.addView(mins,new LinearLayout.LayoutParams(0,-1,1));
+  refreshTime(preview,hour,minute);
+  gap(shell,18);
+  TextView confirm=center("Potvrdit",16,0xff171022,true);confirm.setBackground(shape(PURPLE,17));shell.addView(confirm,lp(-1,54));
+  confirm.setOnClickListener(v->{target.setText(String.format(Locale.ROOT,"%02d:%02d",hour[0],minute[0]));picker.dismiss();});
+  picker.setContentView(shell);picker.show();Window w=picker.getWindow();
+  if(w!=null){w.setBackgroundDrawableResource(android.R.color.transparent);w.setLayout(getResources().getDisplayMetrics().widthPixels-dp(38),WindowManager.LayoutParams.WRAP_CONTENT);}
+ }
+ void refreshTime(TextView preview,int[] hour,int[] minute){
+  preview.setText(String.format(Locale.ROOT,"%02d:%02d",hour[0],minute[0]));
+ }
+ LinearLayout arrowColumn(String label,int[] value,int max,TextView preview,int[] hour,int[] minute){
+  LinearLayout col=column();col.setGravity(Gravity.CENTER);col.setBackground(shape(TILE,19));pad(col,8,7,8,7);
+  col.addView(center(label,11,MUTED,true),lp(-1,26));
+  TextView up=center("▲",31,PURPLE,true);col.addView(up,lp(-1,52));
+  TextView number=center(String.format(Locale.ROOT,"%02d",value[0]),30,WHITE,true);
+  number.setBackground(shape(0xff493a68,13));col.addView(number,lp(-1,65));
+  TextView down=center("▼",31,PURPLE,true);col.addView(down,lp(-1,52));
+  up.setOnClickListener(v->{value[0]=(value[0]+1)%(max+1);number.setText(String.format(Locale.ROOT,"%02d",value[0]));refreshTime(preview,hour,minute);});
+  down.setOnClickListener(v->{value[0]=(value[0]+max)%(max+1);number.setText(String.format(Locale.ROOT,"%02d",value[0]));refreshTime(preview,hour,minute);});
+  return col;
  }
 }
