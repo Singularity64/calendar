@@ -203,7 +203,7 @@ public class MainActivity extends Activity {
   heading.addView(text("Vybrat čas",22,WHITE,true),new LinearLayout.LayoutParams(0,-1,1));
   TextView preview=center("",19,PURPLE,true);preview.setBackground(shape(0xff302a42,12));pad(preview,12,6,12,6);heading.addView(preview);
   gap(shell,17);
-  LinearLayout wheels=row();shell.addView(wheels,lp(-1,230));
+  LinearLayout wheels=row();shell.addView(wheels,lp(-1,265));
   LinearLayout hours=arrowColumn("HODINY",hour,23,preview,hour,minute);
   LinearLayout mins=arrowColumn("MINUTY",minute,59,preview,hour,minute);
   wheels.addView(hours,new LinearLayout.LayoutParams(0,-1,1));
@@ -219,15 +219,39 @@ public class MainActivity extends Activity {
  void refreshTime(TextView preview,int[] hour,int[] minute){
   preview.setText(String.format(Locale.ROOT,"%02d:%02d",hour[0],minute[0]));
  }
+ View chevron(boolean up){
+  View arrow=new View(this){
+   android.graphics.Paint paint=new android.graphics.Paint(3);
+   @Override protected void onDraw(android.graphics.Canvas canvas){
+    super.onDraw(canvas);paint.setColor(PURPLE);paint.setStyle(android.graphics.Paint.Style.STROKE);
+    paint.setStrokeWidth(dp(5));paint.setStrokeCap(android.graphics.Paint.Cap.ROUND);paint.setStrokeJoin(android.graphics.Paint.Join.ROUND);
+    float cx=getWidth()/2f,cy=getHeight()/2f,w=dp(15),h=dp(9);
+    android.graphics.Path path=new android.graphics.Path();
+    if(up){path.moveTo(cx-w,cy+h/2);path.lineTo(cx,cy-h/2);path.lineTo(cx+w,cy+h/2);}
+    else{path.moveTo(cx-w,cy-h/2);path.lineTo(cx,cy+h/2);path.lineTo(cx+w,cy-h/2);}
+    canvas.drawPath(path,paint);
+   }
+  };
+  arrow.setContentDescription(up?"Zvýšit hodnotu":"Snížit hodnotu");
+  return arrow;
+ }
  LinearLayout arrowColumn(String label,int[] value,int max,TextView preview,int[] hour,int[] minute){
   LinearLayout col=column();col.setGravity(Gravity.CENTER);col.setBackground(shape(TILE,19));pad(col,8,7,8,7);
-  col.addView(center(label,11,MUTED,true),lp(-1,26));
-  TextView up=center("▲",31,PURPLE,true);col.addView(up,lp(-1,52));
-  TextView number=center(String.format(Locale.ROOT,"%02d",value[0]),30,WHITE,true);
-  number.setBackground(shape(0xff493a68,13));col.addView(number,lp(-1,65));
-  TextView down=center("▼",31,PURPLE,true);col.addView(down,lp(-1,52));
-  up.setOnClickListener(v->{value[0]=(value[0]+1)%(max+1);number.setText(String.format(Locale.ROOT,"%02d",value[0]));refreshTime(preview,hour,minute);});
-  down.setOnClickListener(v->{value[0]=(value[0]+max)%(max+1);number.setText(String.format(Locale.ROOT,"%02d",value[0]));refreshTime(preview,hour,minute);});
+  col.addView(center(label,11,MUTED,true),lp(-1,23));
+  View up=chevron(true);col.addView(up,lp(-1,43));
+  TextView previous=center("",17,0xff77748a,false);col.addView(previous,lp(-1,24));
+  TextView number=center("",30,WHITE,true);number.setBackground(shape(0xff493a68,13));col.addView(number,lp(-1,59));
+  TextView next=center("",17,0xff77748a,false);col.addView(next,lp(-1,24));
+  View down=chevron(false);col.addView(down,lp(-1,43));
+  Runnable refresh=()->{
+   number.setText(String.format(Locale.ROOT,"%02d",value[0]));
+   previous.setText(String.format(Locale.ROOT,"%02d",(value[0]+max)%(max+1)));
+   next.setText(String.format(Locale.ROOT,"%02d",(value[0]+1)%(max+1)));
+   refreshTime(preview,hour,minute);
+  };
+  refresh.run();
+  up.setOnClickListener(v->{value[0]=(value[0]+max)%(max+1);refresh.run();});
+  down.setOnClickListener(v->{value[0]=(value[0]+1)%(max+1);refresh.run();});
   return col;
  }
 }
