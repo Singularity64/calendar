@@ -212,7 +212,7 @@ public class MainActivity extends Activity {
    JSONObject o=a.optJSONObject(i);
    if(o==null||!d.toString().equals(o.optString("date"))||o.optBoolean("done",false))continue;
    int start=minutes(o.optString("start","09:00"),540),end=minutes(o.optString("end","10:00"),600);
-   int level=Math.max(1,Math.min(3,o.optInt("priority",1)));
+   int level=Math.max(1,Math.min(3,o.optInt("difficulty",2)));
    for(int m=start;m<end;m++)timeline[m]=Math.max(timeline[m],level);
   }
   int[] load=new int[4];for(int level:timeline)if(level>0)load[level]++;
@@ -365,46 +365,59 @@ public class MainActivity extends Activity {
    TextView eventTitle=text(o.optString("title"),15,o.optBoolean("done",false)?MUTED:WHITE,true);
    if(o.optBoolean("done",false))eventTitle.setPaintFlags(eventTitle.getPaintFlags()|android.graphics.Paint.STRIKE_THRU_TEXT_FLAG);
    info.addView(eventTitle);
+   info.setOnClickListener(v->editEvent(at));eventTitle.setOnClickListener(v->editEvent(at));
    info.addView(text(o.optString("start","09:00")+"–"+o.optString("end","10:00"),12,MUTED,false));
    TextView del=center("×",23,MUTED,false);line.addView(del,lp(39,-1));del.setOnClickListener(v->{JSONArray updated=new JSONArray();for(int j=0;j<a.length();j++)if(j!=at)updated.put(a.opt(j));save(updated);draw();});
   }
   if(!found){TextView empty=center("Zatím žádné události. Volný den ✨",14,MUTED,false);empty.setBackground(shape(SURFACE,17));content.addView(empty,lp(-1,78));}
  }
- void addEvent(){
+ void addEvent(){editEvent(-1);}
+ void editEvent(int editIndex){
+  JSONArray existingEvents=events();JSONObject existing=editIndex>=0?existingEvents.optJSONObject(editIndex):null;
   final Dialog dialog=new Dialog(this);
   LinearLayout shell=column();shell.setBackground(shape(SURFACE,26));pad(shell,20,20,20,20);
-  TextView eyebrow=text("GENESIS  /  NOVÁ UDÁLOST",11,PURPLE,true);shell.addView(eyebrow);
-  gap(shell,8);shell.addView(text("Naplánovat událost",23,WHITE,true));
+  TextView eyebrow=text(editIndex>=0?"GENESIS  /  UPRAVIT UDÁLOST":"GENESIS  /  NOVÁ UDÁLOST",11,PURPLE,true);shell.addView(eyebrow);
+  gap(shell,8);shell.addView(text(editIndex>=0?"Upravit událost":"Naplánovat událost",23,WHITE,true));
   gap(shell,4);shell.addView(text(selected.format(DateTimeFormatter.ofPattern("EEEE d. MMMM",new Locale("cs"))),13,MUTED,false));
   gap(shell,22);
   shell.addView(text("NÁZEV",11,MUTED,true));gap(shell,8);
   EditText name=new EditText(this);name.setSingleLine(true);name.setTextColor(WHITE);name.setHintTextColor(MUTED);
-  name.setTextSize(16);name.setHint("Co máš v plánu?");name.setBackground(outline(TILE,15,0xff414055));pad(name,14,12,14,12);shell.addView(name,lp(-1,53));
+  name.setTextSize(16);name.setHint("Co máš v plánu?");name.setBackground(outline(TILE,15,0xff414055));pad(name,14,12,14,12);shell.addView(name,lp(-1,53));if(existing!=null)name.setText(existing.optString("title",""));
   gap(shell,19);shell.addView(text("ČAS UDÁLOSTI",11,MUTED,true));gap(shell,8);
   LinearLayout times=row();shell.addView(times,lp(-1,74));
-  LinearLayout startBox=timeBox("OD","09:00");times.addView(startBox,new LinearLayout.LayoutParams(0,-1,1));
+  LinearLayout startBox=timeBox("OD",existing==null?"09:00":existing.optString("start","09:00"));times.addView(startBox,new LinearLayout.LayoutParams(0,-1,1));
   TextView sep=center("→",20,PURPLE,true);times.addView(sep,lp(35,-1));
-  LinearLayout endBox=timeBox("DO","10:00");times.addView(endBox,new LinearLayout.LayoutParams(0,-1,1));
+  LinearLayout endBox=timeBox("DO",existing==null?"10:00":existing.optString("end","10:00"));times.addView(endBox,new LinearLayout.LayoutParams(0,-1,1));
   TextView from=(TextView)startBox.getChildAt(1),to=(TextView)endBox.getChildAt(1);
   startBox.setOnClickListener(v->pickTime(from));endBox.setOnClickListener(v->pickTime(to));
   gap(shell,19);shell.addView(text("PRIORITA",11,MUTED,true));gap(shell,9);
   LinearLayout priorities=row();shell.addView(priorities,lp(-1,46));
-  String[] names={"Běžná","Důležitá","Urgentní"};int[] colors={GREEN,AMBER,RED};final int[] chosen={1};
+  String[] names={"Běžná","Důležitá","Urgentní"};int[] colors={GREEN,AMBER,RED};final int[] chosen={existing==null?1:existing.optInt("priority",1)};
   TextView[] choices=new TextView[3];
   for(int p=0;p<3;p++){final int index=p;TextView t=center("● "+names[p],12,colors[p],true);
    LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(0,-1,1);params.setMargins(dp(2),0,dp(2),0);priorities.addView(t,params);choices[p]=t;
    t.setOnClickListener(v->{chosen[0]=index+1;for(int j=0;j<3;j++)choices[j].setBackground(outline(j==index?0xff403455:TILE,13,j==index?PURPLE:0xff343345));});
   }
-  for(int j=0;j<3;j++)choices[j].setBackground(outline(j==0?0xff403455:TILE,13,j==0?PURPLE:0xff343345));
+  for(int j=0;j<3;j++)choices[j].setBackground(outline(j==chosen[0]-1?0xff403455:TILE,13,j==chosen[0]-1?PURPLE:0xff343345));
+  gap(shell,15);shell.addView(text("NÁROČNOST",11,MUTED,true));gap(shell,9);
+  LinearLayout difficulties=row();shell.addView(difficulties,lp(-1,44));
+  String[] difficultyNames={"Lehká","Střední","Vysoká"};int[] difficultyColors={GREEN,AMBER,RED};
+  final int[] difficulty={existing==null?2:existing.optInt("difficulty",2)};
+  TextView[] difficultyButtons=new TextView[3];
+  for(int k=0;k<3;k++){final int index=k;TextView chip=center("● "+difficultyNames[k],12,difficultyColors[k],true);
+   LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,-1,1);p.setMargins(dp(2),0,dp(2),0);difficulties.addView(chip,p);difficultyButtons[k]=chip;
+   chip.setOnClickListener(v->{difficulty[0]=index+1;for(int j=0;j<3;j++)difficultyButtons[j].setBackground(outline(j==index?0xff403455:TILE,13,j==index?PURPLE:0xff343345));});
+  }
+  for(int j=0;j<3;j++)difficultyButtons[j].setBackground(outline(j==difficulty[0]-1?0xff403455:TILE,13,j==difficulty[0]-1?PURPLE:0xff343345));
   gap(shell,22);
   LinearLayout actions=row();shell.addView(actions,lp(-1,52));
   TextView cancel=center("Zrušit",14,MUTED,true);actions.addView(cancel,new LinearLayout.LayoutParams(0,-1,1));cancel.setOnClickListener(v->dialog.dismiss());
-  TextView saveButton=center("Uložit událost",15,0xff171022,true);saveButton.setBackground(shape(PURPLE,16));actions.addView(saveButton,new LinearLayout.LayoutParams(0,-1,2));
+  TextView saveButton=center(editIndex>=0?"Uložit změny":"Uložit událost",15,0xff171022,true);saveButton.setBackground(shape(PURPLE,16));actions.addView(saveButton,new LinearLayout.LayoutParams(0,-1,2));
   saveButton.setOnClickListener(v->{
    String title=name.getText().toString().trim(),begin=from.getText().toString(),finish=to.getText().toString();
    if(title.isEmpty()){name.setError("Zadej název");return;}
    if(minutes(finish,0)<=minutes(begin,0)){Toast.makeText(this,"Konec musí být později než začátek",Toast.LENGTH_LONG).show();return;}
-   try{JSONArray a=events();JSONObject o=new JSONObject();o.put("date",selected.toString());o.put("title",title);o.put("start",begin);o.put("end",finish);o.put("priority",chosen[0]);a.put(o);save(a);dialog.dismiss();draw();}
+   try{JSONArray a=events();JSONObject o=existing==null?new JSONObject():existing;o.put("date",selected.toString());o.put("title",title);o.put("start",begin);o.put("end",finish);o.put("priority",chosen[0]);o.put("difficulty",difficulty[0]);if(editIndex<0)a.put(o);else a.put(editIndex,o);save(a);dialog.dismiss();draw();}
    catch(Exception e){Toast.makeText(this,"Událost se nepodařilo uložit",Toast.LENGTH_SHORT).show();}
   });
   ScrollView scroll=new ScrollView(this);scroll.setFillViewport(false);scroll.addView(shell);dialog.setContentView(scroll);
