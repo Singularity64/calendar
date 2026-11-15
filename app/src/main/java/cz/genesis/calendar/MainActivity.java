@@ -116,18 +116,17 @@ public class MainActivity extends Activity {
   LinearLayout loadInfo=column();pullCard.addView(loadInfo,new LinearLayout.LayoutParams(0,-1,1));
   int[] currentLoad=dayLoad(selected);
   int loadMinutes=currentLoad[1]+currentLoad[2]+currentLoad[3];
-  int loadPercent=Math.min(100,(int)Math.round(loadMinutes*100.0/(capacity()*60)));
+  int loadPercent=(int)Math.round(loadMinutes*100.0/(capacity()*60));
+  int loadColor=loadPercent<=33?GREEN:loadPercent<=70?AMBER:RED;
   loadInfo.addView(text("Denní vytížení  •  "+hours(loadMinutes)+"  ("+loadPercent+" %)",13,WHITE,true),lp(-1,29));
   LinearLayout miniBar=row();miniBar.setBackground(shape(0xff393849,8));miniBar.setClipToOutline(true);
   loadInfo.addView(miniBar,lp(-1,12));
-  int barScale=Math.max(loadMinutes,capacity()*60);
-  int[] loadColors={GREEN,0xff59a9ff,RED};
-  for(int level=1;level<=3;level++){
-   if(currentLoad[level]<=0)continue;
-   View segment=new View(this);segment.setBackgroundColor(loadColors[level-1]);
-   miniBar.addView(segment,new LinearLayout.LayoutParams(0,-1,(float)currentLoad[level]/barScale));
+  float fraction=Math.min(1f,loadPercent/100f);
+  if(fraction>0){
+   View filled=new View(this);filled.setBackgroundColor(loadColor);
+   miniBar.addView(filled,new LinearLayout.LayoutParams(0,-1,fraction));
   }
-  if(barScale>loadMinutes)miniBar.addView(new View(this),new LinearLayout.LayoutParams(0,-1,(float)(barScale-loadMinutes)/barScale));
+  if(fraction<1)miniBar.addView(new View(this),new LinearLayout.LayoutParams(0,-1,1f-fraction));
   TextView arrow=center(agendaExpanded?"⌄":"⌃",32,PURPLE,true);
   pullCard.addView(arrow,lp(50,52));
   pullCard.setContentDescription(agendaExpanded?"Sbalit události":"Rozbalit události");
