@@ -184,11 +184,17 @@ public class MainActivity extends Activity {
   LinearLayout digits=row();digits.setGravity(Gravity.CENTER);tile.addView(digits,lp(-1,large?31:21));
   digits.addView(center(""+d.getDayOfMonth(),large?23:15,WHITE,true));
   if(count(d)>0){TextView dot=center(" ●",11,accent(d),true);digits.addView(dot);}
-  if(large)tile.addView(center(score(d)+" %",16,PURPLE,true));
-  ProgressBar bar=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);bar.setMax(100);bar.setProgress(score(d));bar.setProgressTintList(android.content.res.ColorStateList.valueOf(PURPLE));bar.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(0xff383348));LinearLayout.LayoutParams bp=lp(-1,4);bp.leftMargin=dp(5);bp.rightMargin=dp(5);bp.topMargin=dp(large?7:2);tile.addView(bar,bp);
+  int percent=loadPercent(d);
+  if(large)tile.addView(center(percent+" %",16,loadColor(percent),true));
+  ProgressBar bar=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);bar.setMax(100);bar.setProgress(Math.min(100,percent));bar.setProgressTintList(android.content.res.ColorStateList.valueOf(loadColor(percent)));bar.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(0xff383348));LinearLayout.LayoutParams bp=lp(-1,4);bp.leftMargin=dp(5);bp.rightMargin=dp(5);bp.topMargin=dp(large?7:2);tile.addView(bar,bp);
   if(large)tile.addView(center(count(d)+" úkolů",11,MUTED,false));
   tile.setOnClickListener(v->{selected=d;month=YearMonth.from(d);draw();});
  }
+ int loadPercent(LocalDate d){
+  int[] load=dayLoad(d);
+  return (int)Math.round((load[1]+load[2]+load[3])*100.0/(capacity()*60));
+ }
+ int loadColor(int percent){return percent<=33?GREEN:percent<=70?AMBER:RED;}
  int capacity(){return getPreferences(0).getInt("daily_capacity",10);}
  boolean healthVisible(){return getPreferences(0).getBoolean("health_visible",true);}
  int[] dayLoad(LocalDate d){
