@@ -183,10 +183,18 @@ public class MainActivity extends Activity {
   if(large)tile.addView(center(weekday(d).toUpperCase(new Locale("cs")),11,MUTED,true));
   LinearLayout digits=row();digits.setGravity(Gravity.CENTER);tile.addView(digits,lp(-1,large?31:21));
   digits.addView(center(""+d.getDayOfMonth(),large?23:15,WHITE,true));
-  if(count(d)>0){TextView dot=center(" ●",11,accent(d),true);digits.addView(dot);}
   int percent=loadPercent(d);
-  if(large)tile.addView(center(percent+" %",16,loadColor(percent),true));
-  ProgressBar bar=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);bar.setMax(100);bar.setProgress(Math.min(100,percent));bar.setProgressTintList(android.content.res.ColorStateList.valueOf(loadColor(percent)));bar.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(0xff383348));LinearLayout.LayoutParams bp=lp(-1,4);bp.leftMargin=dp(5);bp.rightMargin=dp(5);bp.topMargin=dp(large?7:2);tile.addView(bar,bp);
+  if(large)tile.addView(center(percent+" %",16,PURPLE,true));
+  // A full-width, rounded purple track: 100% must reach its right edge.
+  LinearLayout track=row();track.setBackground(shape(0xff383348,8));track.setClipToOutline(true);
+  LinearLayout.LayoutParams bp=lp(-1,5);bp.leftMargin=dp(3);bp.rightMargin=dp(3);bp.topMargin=dp(large?7:2);
+  tile.addView(track,bp);
+  float filledFraction=Math.min(1f,Math.max(0f,percent/100f));
+  if(filledFraction>0f){
+   View fill=new View(this);fill.setBackground(shape(PURPLE,8));
+   track.addView(fill,new LinearLayout.LayoutParams(0,-1,filledFraction));
+  }
+  if(filledFraction<1f)track.addView(new View(this),new LinearLayout.LayoutParams(0,-1,1f-filledFraction));
   if(large)tile.addView(center(count(d)+" úkolů",11,MUTED,false));
   tile.setOnClickListener(v->{selected=d;month=YearMonth.from(d);draw();});
  }
