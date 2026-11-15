@@ -59,6 +59,7 @@ public class MainActivity extends Activity {
     View.SYSTEM_UI_FLAG_LAYOUT_STABLE|View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN|View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
   }
   draw();
+  if(!getPreferences(0).getBoolean("onboarding_done",false))showOnboarding();
  }
  void draw(){
   root=column();root.setBackgroundColor(BG);
@@ -165,9 +166,9 @@ public class MainActivity extends Activity {
  }
  void monthView(){
   LinearLayout box=column();box.setBackground(shape(SURFACE,22));pad(box,9,13,9,12);content.addView(box,lp(-1,-2));
-  String[] names={"PO","ÚT","ST","ČT","PÁ","SO","NE"};LinearLayout header=row();box.addView(header,lp(-1,32));
+  String[] names=getPreferences(0).getBoolean("week_sunday",false)?new String[]{"NE","PO","ÚT","ST","ČT","PÁ","SO"}:new String[]{"PO","ÚT","ST","ČT","PÁ","SO","NE"};LinearLayout header=row();box.addView(header,lp(-1,32));
   for(String s:names)header.addView(center(s,11,MUTED,true),new LinearLayout.LayoutParams(0,-1,1));
-  int offset=month.atDay(1).getDayOfWeek().getValue()-1;int cells=((offset+month.lengthOfMonth()+6)/7)*7;
+  int offset=month.atDay(1).getDayOfWeek().getValue()-(getPreferences(0).getBoolean("week_sunday",false)?0:1);offset%=7;int cells=((offset+month.lengthOfMonth()+6)/7)*7;
   for(int r=0;r<cells/7;r++){LinearLayout line=row();box.addView(line,lp(-1,48));
    for(int c=0;c<7;c++){int day=r*7+c-offset+1;if(day<1||day>month.lengthOfMonth()){line.addView(new View(this),new LinearLayout.LayoutParams(0,-1,1));continue;}dayTile(line,month.atDay(day),false);}
   }
@@ -236,6 +237,73 @@ public class MainActivity extends Activity {
   }
   gap(card,5);card.addView(text("Obsazený čas z "+capacity()+" h denní kapacity",11,MUTED,false));
  }
+ void showOnboarding(){
+  final int[] step={0};
+  final int[] reminder={0},daily={10},week={0};
+  Dialog dialog=new Dialog(this);
+  LinearLayout shell=column();shell.setBackground(shape(SURFACE,24));pad(shell,22,22,22,18);
+  TextView progress=text("",12,PURPLE,true);shell.addView(progress);gap(shell,12);
+  TextView heading=text("",22,WHITE,true);shell.addView(heading);gap(shell,8);
+  TextView explanation=text("",13,MUTED,false);shell.addView(explanation);gap(shell,18);
+  RadioGroup choices=new RadioGroup(this);choices.setOrientation(1);shell.addView(choices);
+  gap(shell,22);
+  TextView next=center("Pokračovat",16,BG,true);next.setBackground(shape(PURPLE,14));shell.addView(next,lp(-1,50));
+  gap(shell,8);
+  TextView skip=center("Přeskočit vše a začít",14,MUTED,false);shell.addView(skip,lp(-1,45));
+  Runnable finish=()->{
+   getPreferences(0).edit().putBoolean("onboarding_done",true)
+    .putInt("reminder_mode",reminder[0]).putInt("daily_capacity",daily[0])
+    .putBoolean("week_sunday",week[0]==1).apply();
+   dialog.dismiss();draw();
+  };
+  Runnable[] render=new Runnable[1];
+  render[0]=()->{
+   choices.removeAllViews();
+   progress.setText("GENESIS  /  NASTAVENÍ  "+(step[0]+1)+" ZE 3");
+   String[] options;
+   int selectedIndex;
+   if(step[0]==0){
+    heading.setText("Jak často chceš připomínat události?");
+    explanation.setText("Upozornění jsou výchozím nastavením vypnutá. Samotné notifikace připravujeme.");
+    options=new String[]{"Bez upozornění","Jednou před událostí","Dvakrát před událostí"};selectedIndex=reminder[0];
+   }else if(step[0]==1){
+    heading.setText("Kolik hodin denně plánuješ?");
+    explanation.setText("Podle toho počítáme tvoje denní vytížení.");
+    options=new String[]{"8 hodin","10 hodin","12 hodin"};selectedIndex=daily[0]==8?0:daily[0]==12?2:1;
+   }else{
+    heading.setText("Kdy začíná tvůj týden?");
+    explanation.setText("Vyber pořadí dní v měsíčním kalendáři.");
+    options=new String[]{"V pondělí","V neděli"};selectedIndex=week[0];
+   }
+   for(int i=0;i<options.length;i++){
+    RadioButton option=new RadioButton(this);option.setId(i+100);option.setText(options[i]);
+    option.setTextColor(WHITE);option.setButtonTintList(android.content.res.ColorStateList.valueOf(PURPLE));
+    option.setTextSize(15);option.setPadding(dp(4),dp(9),0,dp(9));choices.addView(option);
+   }
+   choices.check(100+selectedIndex);
+   next.setText(step[0]==2?"Dokončit":"Pokračovat");
+  };
+  next.setOnClickListener(v->{
+   int selectedChoice=Math.max(0,choices.getCheckedRadioButtonId()-100);
+   if(step[0]==0)reminder[0]=selectedChoice;
+   else if(step[0]==1)daily[0]=selectedChoice==0?8:selectedChoice==2?12:10;
+   else week[0]=selectedChoice;
+   if(step[0]==2)finish.run();else{step[0]++;render[0].run();}
+  });
+  skip.setOnClickListener(v->{
+   reminder[0]=0;daily[0]=10;week[0]=0;finish.run();
+  });
+  dialog.setOnCancelListener(d->{
+   getPreferences(0).edit().putBoolean("onboarding_done",true).apply();
+  });
+  render[0].run();
+  dialog.setContentView(shell);
+  Window window=dialog.getWindow();
+  if(window!=null){window.setBackgroundDrawableResource(android.R.color.transparent);window.setLayout(-1,-2);}
+  dialog.show();
+  window=dialog.getWindow();
+  if(window!=null){window.setBackgroundDrawableResource(android.R.color.transparent);window.setLayout((int)(getResources().getDisplayMetrics().widthPixels*0.91f),-2);}
+ }
  void showSettings(){
   LinearLayout body=column();pad(body,22,10,22,12);
   body.addView(text("Denní plánovací kapacita",15,WHITE,true));gap(body,12);
@@ -246,9 +314,14 @@ public class MainActivity extends Activity {
    public void onStartTrackingTouch(SeekBar b){}
    public void onStopTrackingTouch(SeekBar b){}
   });
+  body.addView(text("Připomínky (notifikace zatím nejsou aktivní)",13,MUTED,false));gap(body,6);
+  Spinner reminderSetting=new Spinner(this);String[] reminderOptions={"Bez upozornění","Jednou před událostí","Dvakrát před událostí"};
+  android.widget.ArrayAdapter<String> reminderAdapter=new android.widget.ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,reminderOptions);
+  reminderSetting.setAdapter(reminderAdapter);reminderSetting.setSelection(getPreferences(0).getInt("reminder_mode",0));body.addView(reminderSetting);gap(body,12);
+  CheckBox sunday=new CheckBox(this);sunday.setText("Týden začíná v neděli");sunday.setTextColor(WHITE);sunday.setChecked(getPreferences(0).getBoolean("week_sunday",false));body.addView(sunday);gap(body,12);
   CheckBox visible=new CheckBox(this);visible.setText("Zobrazovat denní vytížení");visible.setTextColor(WHITE);visible.setChecked(healthVisible());body.addView(visible);
   new AlertDialog.Builder(this).setTitle("Nastavení").setView(body).setNegativeButton("Zrušit",null).setPositiveButton("Uložit",(d,w)->{
-   getPreferences(0).edit().putInt("daily_capacity",seek.getProgress()+6).putBoolean("health_visible",visible.isChecked()).apply();draw();
+   getPreferences(0).edit().putInt("daily_capacity",seek.getProgress()+6).putBoolean("health_visible",visible.isChecked()).putBoolean("week_sunday",sunday.isChecked()).putInt("reminder_mode",reminderSetting.getSelectedItemPosition()).apply();draw();
   }).show();
  }
  void showStats(){
