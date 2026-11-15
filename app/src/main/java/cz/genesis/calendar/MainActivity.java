@@ -141,7 +141,6 @@ public class MainActivity extends Activity {
    arrow.setText(agendaExpanded?"⌄":"⌃");
    pullCard.setContentDescription(agendaExpanded?"Sbalit události":"Rozbalit události");
   };
-  applyLayout.run();
   pullCard.setOnClickListener(v->{agendaExpanded=!agendaExpanded;applyLayout.run();});
   pullCard.setOnTouchListener(new View.OnTouchListener(){
    float startY;
@@ -159,6 +158,7 @@ public class MainActivity extends Activity {
   });
   agendaScroll.setVerticalScrollBarEnabled(true);
   root.addView(agendaScroll,new LinearLayout.LayoutParams(-1,0));
+  applyLayout.run();
   content=column();agendaScroll.addView(content);agenda();
   gap(root,10);
   TextView add=center("+   Nová událost",16,0xff171022,true);add.setBackground(shape(PURPLE,19));root.addView(add,lp(-1,54));add.setOnClickListener(v->addEvent());
