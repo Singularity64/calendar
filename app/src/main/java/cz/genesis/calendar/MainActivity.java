@@ -103,8 +103,8 @@ public class MainActivity extends Activity {
   ScrollView calendarScroll=new ScrollView(this);calendarScroll.setFillViewport(false);
   int calendarMax=dp(mode==0?340:mode==1?330:230);
   int available=getResources().getDisplayMetrics().heightPixels;
-  calendarMax=Math.min(calendarMax,(int)(available*0.33f));
-  root.addView(calendarScroll,new LinearLayout.LayoutParams(-1,calendarMax));
+  calendarMax=Math.min(calendarMax,(int)(available*0.70f));
+  root.addView(calendarScroll,new LinearLayout.LayoutParams(-1,0,1));
   content=column();calendarScroll.addView(content);
   if(mode==0)monthView();else if(mode==1)weekView();else listView();
   View calendarGap=new View(this);root.addView(calendarGap,lp(1,12));
@@ -130,13 +130,13 @@ public class MainActivity extends Activity {
   TextView arrow=center(agendaExpanded?"⌄":"⌃",32,PURPLE,true);
   pullCard.addView(arrow,lp(50,52));
   pullCard.setContentDescription(agendaExpanded?"Sbalit události":"Rozbalit události");
-  final int expandedCalendarHeight=0;
-  final int collapsedCalendarHeight=calendarMax;
-  final View[] hideWhenExpanded={top,headerGap,controls,controlsGap,tabs,tabsGap,calendarGap};
+  int eventCount=count(selected);
+  final int expandedAgendaHeight=Math.min(dp(40+Math.max(1,eventCount)*69), (int)(available*0.68f));
+  final View[] hideWhenExpanded={};
   Runnable applyLayout=()->{
    for(View v:hideWhenExpanded)v.setVisibility(agendaExpanded?View.GONE:View.VISIBLE);
-   calendarScroll.getLayoutParams().height=agendaExpanded?expandedCalendarHeight:collapsedCalendarHeight;
-   calendarScroll.requestLayout();
+   agendaScroll.getLayoutParams().height=agendaExpanded?expandedAgendaHeight:0;
+   agendaScroll.requestLayout();
    arrow.setText(agendaExpanded?"⌄":"⌃");
    pullCard.setContentDescription(agendaExpanded?"Sbalit události":"Rozbalit události");
   };
@@ -158,7 +158,7 @@ public class MainActivity extends Activity {
   });
   ScrollView agendaScroll=new ScrollView(this);agendaScroll.setFillViewport(true);
   agendaScroll.setVerticalScrollBarEnabled(true);
-  root.addView(agendaScroll,new LinearLayout.LayoutParams(-1,0,1));
+  root.addView(agendaScroll,new LinearLayout.LayoutParams(-1,0));
   content=column();agendaScroll.addView(content);agenda();
   gap(root,10);
   TextView add=center("+   Nová událost",16,0xff171022,true);add.setBackground(shape(PURPLE,19));root.addView(add,lp(-1,54));add.setOnClickListener(v->addEvent());
@@ -168,7 +168,7 @@ public class MainActivity extends Activity {
   String[] names={"PO","ÚT","ST","ČT","PÁ","SO","NE"};LinearLayout header=row();box.addView(header,lp(-1,32));
   for(String s:names)header.addView(center(s,11,MUTED,true),new LinearLayout.LayoutParams(0,-1,1));
   int offset=month.atDay(1).getDayOfWeek().getValue()-1;int cells=((offset+month.lengthOfMonth()+6)/7)*7;
-  for(int r=0;r<cells/7;r++){LinearLayout line=row();box.addView(line,lp(-1,68));
+  for(int r=0;r<cells/7;r++){LinearLayout line=row();box.addView(line,lp(-1,48));
    for(int c=0;c<7;c++){int day=r*7+c-offset+1;if(day<1||day>month.lengthOfMonth()){line.addView(new View(this),new LinearLayout.LayoutParams(0,-1,1));continue;}dayTile(line,month.atDay(day),false);}
   }
  }
@@ -179,13 +179,13 @@ public class MainActivity extends Activity {
  void listView(){LocalDate monday=selected.minusDays(selected.getDayOfWeek().getValue()-1);for(int i=0;i<7;i++){LocalDate d=monday.plusDays(i);LinearLayout line=row();line.setBackground(shape(d.equals(selected)?0xff39304f:SURFACE,17));pad(line,15,10,15,10);LinearLayout.LayoutParams p=lp(-1,63);p.bottomMargin=dp(7);content.addView(line,p);TextView day=text(weekday(d)+" "+d.getDayOfMonth()+".",16,WHITE,true);line.addView(day,new LinearLayout.LayoutParams(0,-1,1));line.addView(text(count(d)+" událostí",12,MUTED,false));TextView value=center("  "+score(d)+" %",15,PURPLE,true);line.addView(value);line.setOnClickListener(v->{selected=d;draw();});}}
  void dayTile(LinearLayout line,LocalDate d,boolean large){
   LinearLayout tile=column();tile.setGravity(Gravity.CENTER);tile.setBackground(d.equals(selected)?outline(0xff403455,17,PURPLE):shape(large?SURFACE:0xff20202e,17));
-  LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(large?115:61),1);p.setMargins(dp(3),dp(3),dp(3),dp(3));line.addView(tile,p);pad(tile,4,4,4,5);
+  LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(large?115:43),1);p.setMargins(dp(3),dp(3),dp(3),dp(3));line.addView(tile,p);pad(tile,4,4,4,5);
   if(large)tile.addView(center(weekday(d).toUpperCase(new Locale("cs")),11,MUTED,true));
-  LinearLayout digits=row();digits.setGravity(Gravity.CENTER);tile.addView(digits,lp(-1,large?31:27));
-  digits.addView(center(""+d.getDayOfMonth(),large?23:17,WHITE,true));
+  LinearLayout digits=row();digits.setGravity(Gravity.CENTER);tile.addView(digits,lp(-1,large?31:21));
+  digits.addView(center(""+d.getDayOfMonth(),large?23:15,WHITE,true));
   if(count(d)>0){TextView dot=center(" ●",11,accent(d),true);digits.addView(dot);}
   if(large)tile.addView(center(score(d)+" %",16,PURPLE,true));
-  ProgressBar bar=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);bar.setMax(100);bar.setProgress(score(d));bar.setProgressTintList(android.content.res.ColorStateList.valueOf(PURPLE));bar.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(0xff383348));LinearLayout.LayoutParams bp=lp(-1,4);bp.leftMargin=dp(5);bp.rightMargin=dp(5);bp.topMargin=dp(large?7:5);tile.addView(bar,bp);
+  ProgressBar bar=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);bar.setMax(100);bar.setProgress(score(d));bar.setProgressTintList(android.content.res.ColorStateList.valueOf(PURPLE));bar.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(0xff383348));LinearLayout.LayoutParams bp=lp(-1,4);bp.leftMargin=dp(5);bp.rightMargin=dp(5);bp.topMargin=dp(large?7:2);tile.addView(bar,bp);
   if(large)tile.addView(center(count(d)+" úkolů",11,MUTED,false));
   tile.setOnClickListener(v->{selected=d;month=YearMonth.from(d);draw();});
  }
