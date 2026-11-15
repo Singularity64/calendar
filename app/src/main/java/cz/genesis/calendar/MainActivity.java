@@ -108,12 +108,28 @@ public class MainActivity extends Activity {
   content=column();calendarScroll.addView(content);
   if(mode==0)monthView();else if(mode==1)weekView();else listView();
   View calendarGap=new View(this);root.addView(calendarGap,lp(1,12));
-  LinearLayout pullCard=column();pullCard.setBackground(shape(SURFACE,19));
-  root.addView(pullCard,lp(-1,56));
-  TextView grip=center("━━━━",19,PURPLE,true);pullCard.addView(grip,lp(-1,22));
-  TextView pull=center(agendaExpanded?"Program dne  •  Potáhni dolů ↓":"Program dne  •  Potáhni nahoru ↑",13,WHITE,true);
-  pullCard.addView(pull,lp(-1,30));
-  pullCard.setContentDescription(agendaExpanded?"Sbalit program dne":"Rozbalit program dne");
+  // Compact daily load indicator doubles as the agenda expansion handle.
+  LinearLayout pullCard=row();pullCard.setGravity(Gravity.CENTER_VERTICAL);
+  pullCard.setBackground(shape(SURFACE,19));pad(pullCard,14,7,10,7);
+  root.addView(pullCard,lp(-1,66));
+  LinearLayout loadInfo=column();pullCard.addView(loadInfo,new LinearLayout.LayoutParams(0,-1,1));
+  int[] currentLoad=dayLoad(selected);
+  int loadMinutes=currentLoad[1]+currentLoad[2]+currentLoad[3];
+  int loadPercent=Math.min(100,(int)Math.round(loadMinutes*100.0/(capacity()*60)));
+  loadInfo.addView(text("Denní vytížení  •  "+hours(loadMinutes)+"  ("+loadPercent+" %)",13,WHITE,true),lp(-1,29));
+  LinearLayout miniBar=row();miniBar.setBackground(shape(0xff393849,8));miniBar.setClipToOutline(true);
+  loadInfo.addView(miniBar,lp(-1,12));
+  int barScale=Math.max(loadMinutes,capacity()*60);
+  int[] loadColors={GREEN,0xff59a9ff,RED};
+  for(int level=1;level<=3;level++){
+   if(currentLoad[level]<=0)continue;
+   View segment=new View(this);segment.setBackgroundColor(loadColors[level-1]);
+   miniBar.addView(segment,new LinearLayout.LayoutParams(0,-1,(float)currentLoad[level]/barScale));
+  }
+  if(barScale>loadMinutes)miniBar.addView(new View(this),new LinearLayout.LayoutParams(0,-1,(float)(barScale-loadMinutes)/barScale));
+  TextView arrow=center(agendaExpanded?"⌄":"⌃",32,PURPLE,true);
+  pullCard.addView(arrow,lp(50,52));
+  pullCard.setContentDescription(agendaExpanded?"Sbalit události":"Rozbalit události");
   final int expandedCalendarHeight=0;
   final int collapsedCalendarHeight=calendarMax;
   final View[] hideWhenExpanded={top,headerGap,controls,controlsGap,tabs,tabsGap,calendarGap};
@@ -121,8 +137,8 @@ public class MainActivity extends Activity {
    for(View v:hideWhenExpanded)v.setVisibility(agendaExpanded?View.GONE:View.VISIBLE);
    calendarScroll.getLayoutParams().height=agendaExpanded?expandedCalendarHeight:collapsedCalendarHeight;
    calendarScroll.requestLayout();
-   pull.setText(agendaExpanded?"Program dne  •  Potáhni dolů ↓":"Program dne  •  Potáhni nahoru ↑");
-   pullCard.setContentDescription(agendaExpanded?"Sbalit program dne":"Rozbalit program dne");
+   arrow.setText(agendaExpanded?"⌄":"⌃");
+   pullCard.setContentDescription(agendaExpanded?"Sbalit události":"Rozbalit události");
   };
   applyLayout.run();
   pullCard.setOnClickListener(v->{agendaExpanded=!agendaExpanded;applyLayout.run();});
@@ -143,7 +159,7 @@ public class MainActivity extends Activity {
   ScrollView agendaScroll=new ScrollView(this);agendaScroll.setFillViewport(true);
   agendaScroll.setVerticalScrollBarEnabled(true);
   root.addView(agendaScroll,new LinearLayout.LayoutParams(-1,0,1));
-  content=column();agendaScroll.addView(content);healthCard();gap(content,12);agenda();
+  content=column();agendaScroll.addView(content);agenda();
   gap(root,10);
   TextView add=center("+   Nová událost",16,0xff171022,true);add.setBackground(shape(PURPLE,19));root.addView(add,lp(-1,54));add.setOnClickListener(v->addEvent());
  }
