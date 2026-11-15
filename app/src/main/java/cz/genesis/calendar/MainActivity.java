@@ -132,6 +132,7 @@ public class MainActivity extends Activity {
   pullCard.setContentDescription(agendaExpanded?"Sbalit události":"Rozbalit události");
   int eventCount=count(selected);
   final int expandedAgendaHeight=Math.min(dp(40+Math.max(1,eventCount)*69), (int)(available*0.68f));
+  ScrollView agendaScroll=new ScrollView(this);agendaScroll.setFillViewport(true);
   final View[] hideWhenExpanded={};
   Runnable applyLayout=()->{
    for(View v:hideWhenExpanded)v.setVisibility(agendaExpanded?View.GONE:View.VISIBLE);
@@ -156,7 +157,6 @@ public class MainActivity extends Activity {
     return true;
    }
   });
-  ScrollView agendaScroll=new ScrollView(this);agendaScroll.setFillViewport(true);
   agendaScroll.setVerticalScrollBarEnabled(true);
   root.addView(agendaScroll,new LinearLayout.LayoutParams(-1,0));
   content=column();agendaScroll.addView(content);agenda();
