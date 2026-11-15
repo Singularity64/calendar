@@ -206,13 +206,13 @@ public class MainActivity extends Activity {
  int capacity(){return getPreferences(0).getInt("daily_capacity",10);}
  boolean healthVisible(){return getPreferences(0).getBoolean("health_visible",true);}
  int[] dayLoad(LocalDate d){
-  // Each minute is assigned to the highest difficulty to avoid double counting.
+  // Each minute is assigned to the highest priority to avoid double counting.
   int[] timeline=new int[1440];JSONArray a=events();
   for(int i=0;i<a.length();i++){
    JSONObject o=a.optJSONObject(i);
    if(o==null||!d.toString().equals(o.optString("date"))||o.optBoolean("done",false))continue;
    int start=minutes(o.optString("start","09:00"),540),end=minutes(o.optString("end","10:00"),600);
-   int level=Math.max(1,Math.min(3,o.optInt("difficulty",o.optInt("priority",1))));
+   int level=Math.max(1,Math.min(3,o.optInt("priority",1)));
    for(int m=start;m<end;m++)timeline[m]=Math.max(timeline[m],level);
   }
   int[] load=new int[4];for(int level:timeline)if(level>0)load[level]++;
@@ -396,15 +396,6 @@ public class MainActivity extends Activity {
    t.setOnClickListener(v->{chosen[0]=index+1;for(int j=0;j<3;j++)choices[j].setBackground(outline(j==index?0xff403455:TILE,13,j==index?PURPLE:0xff343345));});
   }
   for(int j=0;j<3;j++)choices[j].setBackground(outline(j==0?0xff403455:TILE,13,j==0?PURPLE:0xff343345));
-  gap(shell,15);shell.addView(text("NÁROČNOST",11,MUTED,true));gap(shell,9);
-  LinearLayout difficulties=row();shell.addView(difficulties,lp(-1,44));
-  String[] difficultyNames={"Lehká","Střední","Vysoká"};int[] difficultyColors={GREEN,0xff59a9ff,RED};final int[] difficulty={1};
-  TextView[] difficultyButtons=new TextView[3];
-  for(int k=0;k<3;k++){final int index=k;TextView chip=center("● "+difficultyNames[k],12,difficultyColors[k],true);
-   LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,-1,1);p.setMargins(dp(2),0,dp(2),0);difficulties.addView(chip,p);difficultyButtons[k]=chip;
-   chip.setOnClickListener(v->{difficulty[0]=index+1;for(int j=0;j<3;j++)difficultyButtons[j].setBackground(outline(j==index?0xff403455:TILE,13,j==index?PURPLE:0xff343345));});
-  }
-  for(int j=0;j<3;j++)difficultyButtons[j].setBackground(outline(j==0?0xff403455:TILE,13,j==0?PURPLE:0xff343345));
   gap(shell,22);
   LinearLayout actions=row();shell.addView(actions,lp(-1,52));
   TextView cancel=center("Zrušit",14,MUTED,true);actions.addView(cancel,new LinearLayout.LayoutParams(0,-1,1));cancel.setOnClickListener(v->dialog.dismiss());
@@ -413,7 +404,7 @@ public class MainActivity extends Activity {
    String title=name.getText().toString().trim(),begin=from.getText().toString(),finish=to.getText().toString();
    if(title.isEmpty()){name.setError("Zadej název");return;}
    if(minutes(finish,0)<=minutes(begin,0)){Toast.makeText(this,"Konec musí být později než začátek",Toast.LENGTH_LONG).show();return;}
-   try{JSONArray a=events();JSONObject o=new JSONObject();o.put("date",selected.toString());o.put("title",title);o.put("start",begin);o.put("end",finish);o.put("priority",chosen[0]);o.put("difficulty",difficulty[0]);a.put(o);save(a);dialog.dismiss();draw();}
+   try{JSONArray a=events();JSONObject o=new JSONObject();o.put("date",selected.toString());o.put("title",title);o.put("start",begin);o.put("end",finish);o.put("priority",chosen[0]);a.put(o);save(a);dialog.dismiss();draw();}
    catch(Exception e){Toast.makeText(this,"Událost se nepodařilo uložit",Toast.LENGTH_SHORT).show();}
   });
   ScrollView scroll=new ScrollView(this);scroll.setFillViewport(false);scroll.addView(shell);dialog.setContentView(scroll);
