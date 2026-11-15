@@ -389,7 +389,8 @@ public class MainActivity extends Activity {
   TextView sep=center("→",20,PURPLE,true);times.addView(sep,lp(35,-1));
   LinearLayout endBox=timeBox("DO",existing==null?"10:00":existing.optString("end","10:00"));times.addView(endBox,new LinearLayout.LayoutParams(0,-1,1));
   TextView from=(TextView)startBox.getChildAt(1),to=(TextView)endBox.getChildAt(1);
-  startBox.setOnClickListener(v->pickTime(from));endBox.setOnClickListener(v->pickTime(to));
+  startBox.setOnClickListener(v->pickTime(from,()->{int start=minutes(from.getText().toString(),540);if(minutes(to.getText().toString(),600)<=start)to.setText(from.getText().toString());}));
+  endBox.setOnClickListener(v->{if(minutes(to.getText().toString(),600)<minutes(from.getText().toString(),540))to.setText(from.getText().toString());pickTime(to);});
   gap(shell,19);shell.addView(text("PRIORITA",11,MUTED,true));gap(shell,9);
   LinearLayout priorities=row();shell.addView(priorities,lp(-1,46));
   String[] names={"Běžná","Důležitá","Urgentní"};int[] colors={GREEN,AMBER,RED};final int[] chosen={existing==null?1:existing.optInt("priority",1)};
@@ -428,7 +429,8 @@ public class MainActivity extends Activity {
   LinearLayout box=column();box.setGravity(Gravity.CENTER);box.setBackground(outline(TILE,15,0xff414055));
   box.addView(center(label,10,MUTED,true));box.addView(center(value,21,WHITE,true));return box;
  }
- void pickTime(TextView target){
+ void pickTime(TextView target){pickTime(target,null);}
+ void pickTime(TextView target,Runnable onConfirmed){
   int initial=minutes(target.getText().toString(),540);
   final int[] hour={initial/60},minute={initial%60};
   final Dialog picker=new Dialog(this);
@@ -446,7 +448,7 @@ public class MainActivity extends Activity {
   refreshTime(preview,hour,minute);
   gap(shell,18);
   TextView confirm=center("Potvrdit",16,0xff171022,true);confirm.setBackground(shape(PURPLE,17));shell.addView(confirm,lp(-1,54));
-  confirm.setOnClickListener(v->{target.setText(String.format(Locale.ROOT,"%02d:%02d",hour[0],minute[0]));picker.dismiss();});
+  confirm.setOnClickListener(v->{target.setText(String.format(Locale.ROOT,"%02d:%02d",hour[0],minute[0]));if(onConfirmed!=null)onConfirmed.run();picker.dismiss();});
   picker.setContentView(shell);picker.show();Window w=picker.getWindow();
   if(w!=null){w.setBackgroundDrawableResource(android.R.color.transparent);w.setLayout(getResources().getDisplayMetrics().widthPixels-dp(38),WindowManager.LayoutParams.WRAP_CONTENT);}
  }
